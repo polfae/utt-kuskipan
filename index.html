@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fo">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Føroyskt úttøkukrav-skipan</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-content">
+      <div>
+        <h1>Úttøkukrøv</h1>
+      </div>
+      <button class="settings-button" id="openSettings" type="button" aria-haspopup="dialog">
+        <span aria-hidden="true">⚙</span>
+        Stillingar
+      </button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="checker-card" aria-labelledby="checkerTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Lyftara-kanning</p>
+          <h2 id="checkerTitle">Hvørji úttøkukrøv klári eg?</h2>
+        </div>
+      </div>
+
+      <form class="checker-form" id="checkerForm">
+        <label>
+          Kyn
+          <select id="athleteGender">
+            <option value="men">Menn</option>
+            <option value="women">Kvinnur</option>
+          </select>
+        </label>
+        <label>
+          Føðiár
+          <input id="athleteBirthYear" type="number" min="1900" max="2100" step="1" placeholder="t.d. 2008" />
+        </label>
+        <label>
+          Vektflokkur
+          <select id="athleteWeightClass"></select>
+        </label>
+        <label>
+          Samlað úrslit
+          <input id="athleteTotal" type="number" min="0" step="1" placeholder="t.d. 215" />
+        </label>
+      </form>
+
+      <div class="checker-summary" id="checkerSummary"></div>
+      <div class="results-list" id="checkerResults"></div>
+    </section>
+
+    <section class="competition-card" aria-labelledby="competitionTitle">
+      <div class="section-heading top-row">
+        <div>
+          <p class="eyebrow">Kappingaryvirlit</p>
+          <h2 id="competitionTitle">Vel kapping</h2>
+        </div>
+        <div class="active-settings" id="activeSettings"></div>
+      </div>
+
+      <nav class="tabs" id="competitionTabs" aria-label="Kappingar"></nav>
+
+      <div class="competition-panel" id="competitionPanel"></div>
+    </section>
+  </main>
+
+  <dialog class="settings-dialog" id="settingsDialog">
+    <form method="dialog" class="settings-modal" id="settingsForm">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Stillingar</p>
+          <h2>Broyt lækkingarprosent</h2>
+        </div>
+        <button class="icon-button" value="cancel" type="submit" aria-label="Lat stillingar aftur">×</button>
+      </div>
+      <div class="settings-grid">
+        <label>
+          Fyrsta lækking (%)
+          <input id="percentA" type="number" min="0" max="100" step="0.1" />
+        </label>
+        <label>
+          Onnur lækking (%)
+          <input id="percentB" type="number" min="0" max="100" step="0.1" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-button" id="resetSettings" type="button">Endurstilla</button>
+        <button class="primary-button" value="default" type="submit">Goym stillingar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
