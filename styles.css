@@ -1,3 +1,8 @@
+
+.is-hidden {
+  display: none !important;
+}
+
 :root {
   --bg: #f4f1eb;
   --card: #fffdf8;
@@ -150,8 +155,9 @@ h3 { font-size: 1.2rem; }
 
 .checker-form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 14px;
+  align-items: end;
 }
 
 label {
@@ -163,21 +169,65 @@ label {
 }
 
 select,
-input {
+input:not([type="checkbox"]) {
   width: 100%;
   border: 1px solid var(--line);
-  background: white;
+  background-color: white;
   color: var(--text);
+  height: 48px;
   min-height: 48px;
   border-radius: 14px;
   padding: 0 14px;
   outline: none;
+  line-height: 48px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select {
+  padding-right: 38px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 21px,
+    calc(100% - 14px) 21px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 
 select:focus,
-input:focus {
+input:not([type="checkbox"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(18, 61, 76, 0.12);
+}
+
+.bodyweight-field.is-hidden {
+  display: none;
+}
+
+.rule-toggle {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--text);
+  border-radius: 14px;
+  padding: 0 14px;
+}
+
+.rule-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.rule-toggle span {
+  font-weight: 900;
 }
 
 .checker-summary {
@@ -249,27 +299,61 @@ input:focus {
 .badge.neutral { background: var(--card-strong); color: var(--muted); }
 
 .tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 3px 0 22px;
+}
+
+.tab-group {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.tab-group-title {
   display: flex;
+  align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  padding: 3px 0 18px;
-  scrollbar-width: thin;
+  margin-bottom: 10px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tab-group-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.tab-group-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .tab-button {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   border: 1px solid var(--line);
   background: white;
   color: var(--text);
   border-radius: 999px;
-  padding: 10px 15px;
+  padding: 10px 14px;
   font-weight: 850;
+  white-space: nowrap;
 }
 
 .tab-button.active {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+  box-shadow: 0 10px 24px rgba(18, 61, 76, 0.16);
 }
 
 .active-settings {
@@ -377,6 +461,16 @@ th:nth-child(3), th:nth-child(4), th:nth-child(5) {
 tbody tr:hover { background: #fbfaf7; }
 tbody tr:last-child td { border-bottom: 0; }
 
+.auto-class-note {
+  border: 1px solid var(--accent-mid);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
 .settings-dialog {
   width: min(540px, calc(100% - 30px));
   border: 0;
@@ -434,8 +528,801 @@ tbody tr:last-child td { border-bottom: 0; }
     grid-template-columns: 1fr;
   }
   .badges { justify-content: flex-start; }
+  .tabs { grid-template-columns: 1fr; }
+  .tab-button { flex: 0 1 auto; }
   .site-header { padding-top: 26px; }
   .checker-card, .competition-card { padding: 18px; border-radius: 22px; }
   .settings-button { width: max-content; }
   .active-settings { justify-content: flex-start; }
+}
+
+.results-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--accent-mid);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.86));
+  border-radius: var(--radius-lg);
+}
+
+.results-overview strong {
+  display: block;
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+  color: var(--accent);
+}
+
+.results-overview span {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.overview-kicker {
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--accent) !important;
+}
+
+.overview-meta {
+  min-width: 210px;
+  padding: 12px 14px;
+  border: 1px solid rgba(18, 61, 76, 0.14);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+}
+
+.overview-meta span {
+  font-size: 0.76rem;
+}
+
+.overview-meta strong {
+  font-size: 1rem;
+}
+
+.results-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-lg);
+}
+
+.results-tab-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 950;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.results-tab-button:hover {
+  border-color: var(--accent-mid);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.results-tab-button.active {
+  border-color: var(--accent-mid);
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 10px 24px rgba(18, 61, 76, 0.16);
+}
+
+.results-tab-button strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(18, 61, 76, 0.1);
+  color: inherit;
+  font-size: 0.8rem;
+}
+
+.results-tab-button.active strong {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.qualified-groups {
+  display: grid;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.results-tab-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.results-tab-heading strong {
+  color: var(--accent);
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.results-tab-heading span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.qualified-group {
+  display: grid;
+  gap: 12px;
+}
+
+.qualified-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.qualified-group-heading span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.qualified-group-heading h3 {
+  color: var(--accent);
+  font-size: 1.22rem;
+}
+
+.qualified-competition-list {
+  display: grid;
+  gap: 12px;
+}
+
+.qualified-card {
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.qualified-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--card-strong);
+  border-bottom: 1px solid var(--line);
+}
+
+.qualified-card-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.qualified-card-header span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.qualified-table-wrap {
+  overflow-x: auto;
+}
+
+.qualified-table {
+  min-width: 640px;
+}
+
+.qualified-table th:nth-child(n+3),
+.qualified-table td:nth-child(n+3) {
+  text-align: right;
+}
+
+.qualified-table th:first-child,
+.qualified-table td:first-child,
+.qualified-table th:nth-child(2),
+.qualified-table td:nth-child(2) {
+  text-align: left;
+}
+
+.margin-positive {
+  color: var(--success);
+  font-weight: 950;
+}
+
+@media (max-width: 860px) {
+  .results-overview {
+    grid-template-columns: 1fr;
+    border-radius: 22px;
+  }
+
+  .overview-meta {
+    min-width: 0;
+  }
+
+  .results-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .results-tab-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .qualified-group-heading {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .results-tabs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-dialog.wide {
+  width: min(1120px, calc(100% - 28px));
+}
+
+.settings-dialog.wide .settings-modal {
+  max-height: min(86vh, 900px);
+  overflow: auto;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 4px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-md);
+}
+
+.settings-tab-button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-weight: 950;
+}
+
+.settings-tab-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 10px 24px rgba(18, 61, 76, 0.14);
+}
+
+.settings-panel.is-hidden {
+  display: none;
+}
+
+.panel-actions,
+.totals-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 12px 0 18px;
+}
+
+.totals-toolbar label {
+  flex: 1 1 360px;
+}
+
+.settings-save-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.totals-editor {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0 20px;
+}
+
+.edit-competition {
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.edit-competition summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 14px 16px;
+  background: var(--card-strong);
+  font-weight: 950;
+  color: var(--text);
+}
+
+.edit-competition summary small {
+  color: var(--accent);
+  font-weight: 900;
+  text-align: right;
+}
+
+.edit-gender-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+}
+
+.edit-gender-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #fff;
+}
+
+.edit-gender-card h3 {
+  padding: 12px 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.edit-table-wrap {
+  overflow-x: auto;
+}
+
+.edit-table {
+  min-width: 360px;
+}
+
+.edit-table th:last-child,
+.edit-table td:last-child {
+  text-align: right;
+}
+
+.total-edit-input {
+  max-width: 110px;
+  text-align: right;
+  margin-left: auto;
+}
+
+@media (max-width: 860px) {
+  .panel-actions,
+  .totals-toolbar,
+  .modal-actions {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .edit-gender-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-tab-button,
+  .secondary-button,
+  .primary-button {
+    width: 100%;
+  }
+}
+
+.totals-competition-tabs {
+  display: grid;
+  gap: 12px;
+}
+
+.totals-competition-tab-group {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.totals-competition-tab-title {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.totals-competition-tab-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.totals-competition-tab {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--text);
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.totals-competition-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(20, 40, 50, 0.08);
+}
+
+.totals-competition-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 10px 24px rgba(18, 61, 76, 0.14);
+}
+
+.active-edit-competition {
+  margin-top: 2px;
+}
+
+.edit-competition-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card-strong);
+  font-weight: 950;
+  color: var(--text);
+}
+
+.edit-competition-header div {
+  display: grid;
+  gap: 3px;
+}
+
+.edit-competition-header small {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+
+.totals-requirement-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 0;
+  background: var(--card-strong);
+}
+
+.totals-requirement-tab {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--text-muted);
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-weight: 950;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.totals-requirement-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(20, 40, 50, 0.08);
+}
+
+.totals-requirement-tab.active {
+  background: var(--accent-soft);
+  border-color: rgba(18, 61, 76, 0.24);
+  color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .totals-competition-tab-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .totals-competition-tab {
+    width: 100%;
+  }
+}
+
+.weightclass-edit-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weightclass-edit-cell span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.weightclass-edit-input {
+  width: 58px;
+  max-width: 58px;
+  text-align: right;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.totals-competition-tab-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.totals-competition-tab-title-row .totals-competition-tab-title {
+  margin-bottom: 0;
+}
+
+.mini-action-button {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--accent);
+  border-radius: 999px;
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.mini-action-button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 720px) {
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-actions .secondary-button {
+    flex: 1 1 180px;
+  }
+}
+
+.agegroup-edit-input,
+.agegroup-number-input {
+  width: 100%;
+  min-width: 70px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font: inherit;
+  background: #ffffff;
+}
+
+.agegroup-edit-input:focus,
+.agegroup-number-input:focus {
+  outline: 2px solid rgba(34, 73, 87, 0.16);
+  border-color: var(--accent);
+}
+
+.masters-age-tabs {
+  border-top: 1px solid var(--line);
+}
+
+.masters-age-editor {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card-strong);
+  border-top: 1px solid var(--line);
+}
+
+.masters-age-editor label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.masters-age-editor input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font: inherit;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.masters-age-editor input:focus {
+  outline: 2px solid rgba(34, 73, 87, 0.16);
+  border-color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .masters-age-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.add-dialog .settings-modal {
+  max-width: 760px;
+}
+
+.add-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.add-form-grid:has(label:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.choice-section {
+  padding: 14px;
+  border: 1px solid var(--border-color, #d8dee8);
+  border-radius: 18px;
+  background: var(--soft-surface, #f8fafc);
+  margin-bottom: 14px;
+}
+
+.choice-heading {
+  font-weight: 750;
+  color: var(--text-color, #172033);
+  margin-bottom: 8px;
+}
+
+.choice-help {
+  font-size: 0.88rem;
+  color: var(--muted-text, #667085);
+  margin: -2px 0 10px;
+}
+
+.choice-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.choice-button {
+  border: 1px solid var(--border-color, #d8dee8);
+  background: #fff;
+  color: var(--text-color, #172033);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.16s ease;
+}
+
+.choice-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-color, #536b8f);
+}
+
+.choice-button.active {
+  background: var(--accent-color, #22324d);
+  color: #fff;
+  border-color: var(--accent-color, #22324d);
+  box-shadow: 0 8px 18px rgba(20, 34, 58, 0.16);
+}
+
+.choice-button:disabled,
+.choice-button.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.choice-button:disabled:hover,
+.choice-button.is-disabled:hover {
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .add-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.group-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.mini-action-button.danger {
+  color: #9f1239;
+  border-color: rgba(159, 18, 57, 0.22);
+  background: rgba(159, 18, 57, 0.04);
+}
+
+.mini-action-button.danger:hover {
+  border-color: rgba(159, 18, 57, 0.38);
+  background: rgba(159, 18, 57, 0.08);
+}
+
+.totals-competition-tab-item {
+  display: inline-flex;
+  align-items: stretch;
+  position: relative;
+}
+
+.totals-competition-tab-item .totals-competition-tab {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.mini-delete-button {
+  width: 2.1rem;
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(159, 18, 57, 0.035);
+  color: #9f1239;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.mini-delete-button:hover {
+  background: rgba(159, 18, 57, 0.09);
+  border-color: rgba(159, 18, 57, 0.35);
+  color: #881337;
+}
+
+
+.compact-toolbar {
+  justify-content: flex-end;
+}
+
+.group-action-buttons .mini-delete-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
 }

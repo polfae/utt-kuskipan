@@ -41,12 +41,16 @@
           <input id="athleteBirthYear" type="number" min="1900" max="2100" step="1" placeholder="t.d. 2008" />
         </label>
         <label>
-          Vektflokkur
-          <select id="athleteWeightClass"></select>
+          Kroppsvekt
+          <input id="athleteBodyweight" type="number" min="0" step="0.1" placeholder="t.d. 71,6" />
         </label>
         <label>
           Samlað úrslit
           <input id="athleteTotal" type="number" min="0" step="1" placeholder="t.d. 215" />
+        </label>
+        <label class="rule-toggle">
+          <input id="threePercentRule" type="checkbox" />
+          <span>3% regla</span>
         </label>
       </form>
 
@@ -69,31 +73,133 @@
     </section>
   </main>
 
-  <dialog class="settings-dialog" id="settingsDialog">
+  <dialog class="settings-dialog wide" id="settingsDialog">
     <form method="dialog" class="settings-modal" id="settingsForm">
       <div class="modal-header">
         <div>
           <p class="eyebrow">Stillingar</p>
-          <h2>Broyt lækkingarprosent</h2>
+          <h2>Stýr úttøkukrøvunum</h2>
         </div>
         <button class="icon-button" value="cancel" type="submit" aria-label="Lat stillingar aftur">×</button>
       </div>
-      <div class="settings-grid">
-        <label>
-          Fyrsta lækking (%)
-          <input id="percentA" type="number" min="0" max="100" step="0.1" />
-        </label>
-        <label>
-          Onnur lækking (%)
-          <input id="percentB" type="number" min="0" max="100" step="0.1" />
-        </label>
-      </div>
+
+      <nav class="settings-tabs" aria-label="Stillingar">
+        <button class="settings-tab-button active" type="button" data-settings-tab="totals">Úttøkukrøv</button>
+        <button class="settings-tab-button" type="button" data-settings-tab="percentages">Lækkingar</button>
+        <button class="settings-tab-button" type="button" data-settings-tab="threePercent">% regla</button>
+      </nav>
+
+      <section class="settings-panel is-hidden" id="percentageSettingsPanel">
+        <div class="settings-grid">
+          <label>
+            Fyrsta lækking (%)
+            <input id="percentA" type="number" min="0" max="100" step="0.1" />
+          </label>
+          <label>
+            Onnur lækking (%)
+            <input id="percentB" type="number" min="0" max="100" step="0.1" />
+          </label>
+        </div>
+        <div class="panel-actions split-actions">
+          <button class="secondary-button" id="resetSettings" type="button">Endurstilla lækkingar</button>
+        </div>
+      </section>
+
+
+      <section class="settings-panel is-hidden" id="threePercentSettingsPanel">
+        <div class="settings-grid">
+          <label>
+            3% regla (%)
+            <input id="threePercentValue" type="number" min="0" max="20" step="0.1" />
+          </label>
+        </div>
+        <p class="settings-help-text">Hetta virðið verður brúkt, tá 3% reglan er tendrað í lyftara-kanningini.</p>
+        <div class="panel-actions split-actions">
+          <button class="secondary-button" id="resetThreePercent" type="button">Endurstilla 3% reglu</button>
+        </div>
+      </section>
+
+      <section class="settings-panel" id="totalsSettingsPanel">
+        <div class="totals-toolbar compact-toolbar">
+          <div class="toolbar-actions">
+            <button class="secondary-button" id="addCompetitionGroup" type="button">+ Nýggjur bólkur</button>
+          </div>
+        </div>
+        <div class="totals-editor" id="totalsEditor"></div>
+      </section>
+
       <div class="modal-actions">
-        <button class="secondary-button" id="resetSettings" type="button">Endurstilla</button>
-        <button class="primary-button" value="default" type="submit">Goym stillingar</button>
+        <span class="settings-save-note">Broytir tú úttøkukrøv, verða tey goymd í hesum kagaranum.</span>
+        <button class="primary-button" value="default" type="submit">Goym og lat aftur</button>
       </div>
     </form>
   </dialog>
+
+  <dialog class="settings-dialog add-dialog" id="addCompetitionDialog">
+    <form method="dialog" class="settings-modal add-competition-modal" id="addCompetitionForm">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Nýggj kapping</p>
+          <h2 id="addCompetitionTitle">Stovna kapping</h2>
+        </div>
+        <button class="icon-button" value="cancel" type="submit" aria-label="Lat vindeygað aftur">×</button>
+      </div>
+
+      <div class="add-form-grid" id="newGroupFields">
+        <label>
+          Navn á bólki
+          <input id="newGroupName" type="text" placeholder="t.d. Danskar meistarakappingar" />
+        </label>
+        <label>
+          Stutt heiti
+          <input id="newGroupShortLabel" type="text" placeholder="t.d. DM" />
+        </label>
+      </div>
+
+      <div class="add-form-grid">
+        <label>
+          Navn á kapping
+          <input id="newCompetitionName" type="text" placeholder="t.d. DM senior" />
+        </label>
+      </div>
+
+      <div class="choice-section">
+        <div class="choice-heading">Kappingarslag</div>
+        <div class="choice-buttons single-choice" id="competitionTypeChoices" role="radiogroup" aria-label="Kappingarslag">
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="u15">U15</button>
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="u17">U17</button>
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="ung">Ung</button>
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="junior">Junior</button>
+          <button type="button" class="choice-button active" data-choice="competitionType" data-value="senior">Senior</button>
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="masters">Masters</button>
+          <button type="button" class="choice-button" data-choice="competitionType" data-value="open">Open</button>
+        </div>
+      </div>
+
+      <div class="choice-section is-hidden" id="mastersAgeChoicesPanel">
+        <div class="choice-heading">Masters aldursbólkar</div>
+        <div class="choice-help">Vel teir aldursbólkarnar, sum skulu stovnast í kappingini.</div>
+        <div class="choice-buttons multi-choice" id="mastersAgeChoices" aria-label="Masters aldursbólkar"></div>
+      </div>
+
+      <div class="choice-section">
+        <div class="choice-heading">Kravstig</div>
+        <div class="choice-help">Vel antin Úttøkukrav ella eitt ella fleiri av A, B og C.</div>
+        <div class="choice-buttons multi-choice" id="requirementLevelChoices" aria-label="Kravstig">
+          <button type="button" class="choice-button active" data-choice="requirementLevel" data-value="Úttøkukrav">Úttøkukrav</button>
+          <button type="button" class="choice-button" data-choice="requirementLevel" data-value="A-krav">A</button>
+          <button type="button" class="choice-button" data-choice="requirementLevel" data-value="B-krav">B</button>
+          <button type="button" class="choice-button" data-choice="requirementLevel" data-value="C-krav">C</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <span class="settings-save-note" id="addCompetitionNote">Kappingin verður goymd í hesum kagaranum.</span>
+        <button class="primary-button" id="createCompetitionButton" value="default" type="button">Stovna kapping</button>
+      </div>
+    </form>
+  </dialog>
+
 
   <script src="data.js"></script>
   <script src="script.js"></script>
