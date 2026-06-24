@@ -1,47 +1,48 @@
-# Føroyskt úttøkukrav-skipan
+# Úttøkukrøv
 
-Hendan útgávan hevur betrað stovnan av nýggjum kappingum og kappingarbólkum.
+Statisk HTML/CSS/JavaScript síða til at umsita og kanna føroysk úttøkukrøv í vektlyfting.
 
-## Broytingar í hesi útgávu
+## Nýtt í hesi útgávuni
 
-- Rættað: **Stovna kapping** riggar nú, tá nýggjur bólkur verður stovnaður.
-- **Aldursbólkur** er tikin burtur sum separat val, tí **Kappingarslag** stýrir sama logikki.
-- Masters aldursbólkar verða nú bert vístir, tá **Masters** er valt sum kappingarslag.
-- **Kappingarslag** hevur nú fleiri val:
-  - U15
-  - U17
-  - Ung
-  - Junior
-  - Senior
-  - Masters
-  - Open
-- Tá kapping verður løgd afturat einum verandi bólki, verða **Navn á bólki** og **Stutt heiti** ikki víst.
-- **Kravstig** er nú stigvíst:
-  - Úttøkukrav
-  - A
-  - A + B
-  - A + B + C
-- Tað ber ikki longur til at velja B uttan A ella C uttan A + B.
+- Úttøkukrøv, vektflokkar og totals verða nú broytt inni í sjálvum **Broyt kapping** vindeyganum.
+- Høvuðslistin undir **Stillingar → Úttøkukrøv** vísir nú bert kappingarnar; klikk á eina kapping fyri at broyta hana.
+- Striking av kappingum er flutt inn í **Broyt kapping** vindeygað við einari varning.
+- Tú kanst framvegis stovna, broyta og strika bólkar og kappingar.
+- Tú kanst framvegis leggja vektflokkar afturat og strika vektflokkar inni á edit-vindeyganum.
+- Vektflokkar verða framvegis ikki endurraðaðir meðan skrivað verður; raðingin hendir tá input verður frávalt ella Enter verður trýst.
 
-Alt verður framvegis goymt í kagaranum við `localStorage`.
+## Brúk
+
+Lat `index.html` upp í einum kagara ella legg mappuna á GitHub Pages.
 
 
-## Bótføring
+## Latest update
 
-- Rættað stovnan av nýggjum bólki, so knappurin **Stovna kapping** nú virkar í nýggja bólka-flowinum.
-
-
-## Nýtt í hesi útgávu
-
-- Tað ber nú til at strika einstakar kappingar í **Stillingar → Úttøkukrøv**.
-- Tað ber nú til at strika heilar kappingarbólkar. Hetta strikar allar kappingar í bólkinum.
-- Striking krevur váttan, so tað ikki hendir av óvart.
-- Seinasta kappingin ella seinasti kappingarbólkurin kann ikki strikast, so síðan ikki endar uttan innihald.
+Competition actions have been simplified: the settings overview only shows competition names, clicking a competition opens the edit modal, and the destructive **Strika** action is now inside the edit modal next to **Goym broytingar** with confirmation.
 
 
-## Seinastu UI-broytingar
+## Seinasta dagføring
 
-- Strika bólk er nú ein einfaldur X-knøttur.
-- Vektflokkur-input í úttøkukrava-editorinum er minni.
-- Leiting og endurstilling av úttøkukrøvum eru tikin burtur.
-- Stillingar-tabs eru nú: Úttøkukrøv, Lækkingar og % regla.
+- Kravstig í kappingar-edit vindeyganum dagførir nú úttøkukrøvini beinanvegin.
+- Tá ein kapping verður broytt frá vanligum úttøkukravi til A/B/C, verða verandi krøvini flutt til A-krav.
+- B-krav og C-krav verða stovnað beinanvegin, so tey kunnu broytast uttan at goyma og lata vindeygað upp aftur.
+- Tá A/B/C verður broytt aftur til vanligt úttøkukrav, verða A-krøvini varðveitt sum nýggja minimumskravið.
+
+## Latest update
+- Display and result tables now use equal-width columns.
+- Table headers and values are centered horizontally so values align directly under their headings.
+
+## Seinastu broytingar
+
+- Vektflokkar á høvuðssíðuni vísa nú minus frammanfyri vanliga flokkar, t.d. `-86 kg`, meðan plussflokkar vísa `86+ kg`.
+- Úttøkukrøv á høvuðssíðuni vísa nú `kg` aftaná talið.
+
+
+## Static elevated cards
+
+Cards and content containers now have a subtle permanent elevated look instead of relying on mouse hover movement.
+
+
+## Latest change
+
+Settings and edit modals are now top-aligned so switching tabs changes only the bottom height of the modal, not the top position.
