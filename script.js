@@ -87,10 +87,17 @@ let settings = loadSettings();
 let activeCompetitionSlug = qualificationData[0]?.slug || "";
 let activeSettingsTab = "totals";
 let activeRequirementFilters = {};
+let activeMainMastersAgeGroupFilters = {};
 let activeResultsGroup = "all";
 let activeTotalsCompetitionSlug = qualificationData[0]?.slug || "";
 let activeTotalsRequirementTitle = "";
 let activeTotalsMastersAgeGroupKey = {};
+let settingsDragState = {
+  type: "",
+  sourceKey: "",
+  sourceGroupKey: "",
+  recentDrag: false,
+};
 let firebaseState = {
   services: null,
   currentUser: null,
@@ -114,6 +121,10 @@ const elements = {
   checkerSummary: document.getElementById("checkerSummary"),
   settingsDialog: document.getElementById("settingsDialog"),
   openSettings: document.getElementById("openSettings"),
+  openLogin: document.getElementById("openLogin"),
+  mainLogoutButton: document.getElementById("mainLogoutButton"),
+  closeAuthDialog: document.getElementById("closeAuthDialog"),
+  cancelAuthDialog: document.getElementById("cancelAuthDialog"),
   settingsForm: document.getElementById("settingsForm"),
   percentA: document.getElementById("percentA"),
   percentB: document.getElementById("percentB"),
@@ -173,6 +184,7 @@ function init() {
   renderCompetition();
   renderChecker();
   bindEvents();
+  updateAuthControls();
   initFirebaseIntegration();
 }
 
@@ -187,10 +199,14 @@ function bindEvents() {
   });
   updateThreePercentRuleButton();
 
-  elements.openSettings.addEventListener("click", handleOpenSettings);
+  elements.openSettings?.addEventListener("click", handleOpenSettings);
+  elements.openLogin?.addEventListener("click", openAuthDialog);
 
   elements.authForm?.addEventListener("submit", handleAuthSubmit);
+  elements.closeAuthDialog?.addEventListener("click", closeAuthDialog);
+  elements.cancelAuthDialog?.addEventListener("click", closeAuthDialog);
   elements.logoutButton?.addEventListener("click", handleLogout);
+  elements.mainLogoutButton?.addEventListener("click", handleLogout);
 
   elements.settingsForm.addEventListener("submit", () => {
     const percentA = cleanPercentage(
@@ -223,6 +239,12 @@ function bindEvents() {
   });
 
   elements.totalsSearch?.addEventListener("input", renderTotalsEditor);
+
+  elements.totalsEditor.addEventListener("dragstart", handleSettingsDragStart);
+  elements.totalsEditor.addEventListener("dragover", handleSettingsDragOver);
+  elements.totalsEditor.addEventListener("dragleave", handleSettingsDragLeave);
+  elements.totalsEditor.addEventListener("drop", handleSettingsDrop);
+  elements.totalsEditor.addEventListener("dragend", handleSettingsDragEnd);
 
   elements.totalsEditor.addEventListener("input", (event) => {
     const totalInput = event.target.closest("[data-total-input]");
@@ -488,12 +510,24 @@ function openAuthDialog() {
   if (!elements.authDialog) return;
   elements.authError.textContent = "";
   elements.authPassword.value = "";
-  elements.authDialog.showModal();
+  if (!elements.authDialog.open) elements.authDialog.showModal();
   setTimeout(() => elements.authEmail?.focus(), 0);
 }
 
+function closeAuthDialog() {
+  if (!elements.authDialog?.open) return;
+  elements.authError.textContent = "";
+  elements.authDialog.close();
+}
+
+function updateAuthControls() {
+  const isLoggedIn = Boolean(firebaseState.currentUser);
+  elements.openLogin?.classList.toggle("is-hidden", isLoggedIn);
+  elements.openSettings?.classList.toggle("is-hidden", !isLoggedIn);
+  elements.mainLogoutButton?.classList.toggle("is-hidden", !isLoggedIn);
+}
+
 async function handleAuthSubmit(event) {
-  if (event.submitter?.value === "cancel") return;
   event.preventDefault();
   if (!firebaseState.services) return;
 
@@ -522,7 +556,9 @@ async function handleAuthSubmit(event) {
 async function handleLogout() {
   if (!firebaseState.services) return;
   await firebaseState.services.signOut(firebaseState.services.auth);
-  elements.settingsDialog.close();
+  if (elements.settingsDialog?.open) elements.settingsDialog.close();
+  if (elements.authDialog?.open) elements.authDialog.close();
+  updateAuthControls();
 }
 
 function getReadableAuthError(error) {
@@ -571,6 +607,7 @@ function attachFirebaseServices(services) {
 
   services.onAuthStateChanged(services.auth, (user) => {
     firebaseState.currentUser = user || null;
+    updateAuthControls();
   });
 
   loadSystemFromCloud();
@@ -580,9 +617,22 @@ async function loadSystemFromCloud() {
   if (!firebaseState.services) return;
   firebaseState.loadingRemote = true;
   try {
-    const { db, doc, getDoc } = firebaseState.services;
+    const { db, doc, getDoc, getDocFromServer } = firebaseState.services;
     const reference = doc(db, FIREBASE_COLLECTION, FIREBASE_SYSTEM_ID);
-    const snapshot = await getDoc(reference);
+    let snapshot;
+    try {
+      // Firestore is the source of truth. Force a server read so old local
+      // browser/localStorage data cannot override the saved database version.
+      snapshot = getDocFromServer
+        ? await getDocFromServer(reference)
+        : await getDoc(reference);
+    } catch (serverError) {
+      console.warn(
+        "Could not load qualification system directly from Firestore server. Falling back to cached Firestore/local data.",
+        serverError,
+      );
+      snapshot = await getDoc(reference);
+    }
     if (!snapshot.exists()) return;
 
     const remote = snapshot.data();
@@ -936,6 +986,7 @@ function renderTotalsEditor() {
     .querySelectorAll("[data-totals-competition-slug]")
     .forEach((button) => {
       button.addEventListener("click", () => {
+        if (settingsDragState.recentDrag) return;
         activeTotalsCompetitionSlug = button.dataset.totalsCompetitionSlug;
         openAddCompetitionDialog(
           "edit-competition",
@@ -1180,10 +1231,13 @@ function renderTotalsCompetitionTabs() {
             .sort((a, b) => competitionOrder(a.slug) - competitionOrder(b.slug))
             .map(
               (competition) => `
-            <div class="totals-competition-tab-item">
+            <div class="totals-competition-tab-item" data-competition-drop-target="${escapeAttribute(competition.slug)}">
               <button
                 class="totals-competition-tab"
                 type="button"
+                draggable="true"
+                data-drag-competition-slug="${escapeAttribute(competition.slug)}"
+                data-drag-competition-group="${escapeAttribute(group.key)}"
                 data-totals-competition-slug="${escapeAttribute(competition.slug)}"
                 aria-label="Broyt ${escapeAttribute(competition.name)}"
                 title="Broyt kapping"
@@ -1196,7 +1250,7 @@ function renderTotalsCompetitionTabs() {
             .join("");
 
           return `
-          <div class="totals-competition-tab-group">
+          <div class="totals-competition-tab-group" draggable="true" data-drag-group-key="${escapeAttribute(group.key)}">
             <div class="totals-competition-tab-title-row">
               <div class="totals-competition-tab-title">${escapeHtml(group.label)}</div>
               <div class="group-action-buttons">
@@ -1231,6 +1285,195 @@ function getCompetitionGroups() {
   return [...map.values()].sort(
     (a, b) => a.order - b.order || a.label.localeCompare(b.label, "fo"),
   );
+}
+
+
+function handleSettingsDragStart(event) {
+  const competitionButton = event.target.closest("[data-drag-competition-slug]");
+  if (competitionButton) {
+    settingsDragState = {
+      type: "competition",
+      sourceKey: competitionButton.dataset.dragCompetitionSlug,
+      sourceGroupKey: competitionButton.dataset.dragCompetitionGroup,
+      recentDrag: true,
+    };
+    competitionButton.closest(".totals-competition-tab-item")?.classList.add("is-dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", settingsDragState.sourceKey);
+    return;
+  }
+
+  const groupCard = event.target.closest("[data-drag-group-key]");
+  if (!groupCard || event.target.closest("button, input, select, textarea")) {
+    event.preventDefault();
+    return;
+  }
+
+  settingsDragState = {
+    type: "group",
+    sourceKey: groupCard.dataset.dragGroupKey,
+    sourceGroupKey: "",
+    recentDrag: true,
+  };
+  groupCard.classList.add("is-dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", settingsDragState.sourceKey);
+}
+
+function handleSettingsDragOver(event) {
+  if (!settingsDragState.type) return;
+
+  const target = getSettingsDragTarget(event);
+  if (!target || target.key === settingsDragState.sourceKey) return;
+  if (
+    settingsDragState.type === "competition" &&
+    target.groupKey !== settingsDragState.sourceGroupKey
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  clearSettingsDragTargets();
+  target.element.classList.add("is-drag-over");
+}
+
+function handleSettingsDragLeave(event) {
+  const card = event.target.closest(
+    ".totals-competition-tab-item, .totals-competition-tab-group",
+  );
+  if (!card || card.contains(event.relatedTarget)) return;
+  card.classList.remove("is-drag-over");
+}
+
+function handleSettingsDrop(event) {
+  if (!settingsDragState.type) return;
+
+  const target = getSettingsDragTarget(event);
+  const dragType = settingsDragState.type;
+  const sourceKey = settingsDragState.sourceKey;
+  const sourceGroupKey = settingsDragState.sourceGroupKey;
+
+  clearSettingsDragTargets();
+  if (!target || target.key === sourceKey) {
+    resetSettingsDragStateSoon();
+    return;
+  }
+
+  event.preventDefault();
+  if (dragType === "group") {
+    reorderCompetitionGroup(sourceKey, target.key);
+    resetSettingsDragStateSoon();
+    return;
+  }
+
+  if (dragType === "competition" && target.groupKey === sourceGroupKey) {
+    reorderCompetitionWithinGroup(sourceKey, target.key);
+  }
+  resetSettingsDragStateSoon();
+}
+
+function handleSettingsDragEnd() {
+  resetSettingsDragStateSoon();
+}
+
+function resetSettingsDragStateSoon() {
+  clearSettingsDragTargets();
+  elements.totalsEditor
+    .querySelectorAll(".is-dragging")
+    .forEach((item) => item.classList.remove("is-dragging"));
+  settingsDragState.type = "";
+  settingsDragState.sourceKey = "";
+  settingsDragState.sourceGroupKey = "";
+  window.setTimeout(() => {
+    settingsDragState.recentDrag = false;
+  }, 120);
+}
+
+function getSettingsDragTarget(event) {
+  if (settingsDragState.type === "competition") {
+    const item = event.target.closest("[data-competition-drop-target]");
+    if (!item) return null;
+    const button = item.querySelector("[data-drag-competition-slug]");
+    if (!button) return null;
+    return {
+      key: button.dataset.dragCompetitionSlug,
+      groupKey: button.dataset.dragCompetitionGroup,
+      element: item,
+    };
+  }
+
+  if (settingsDragState.type === "group") {
+    const group = event.target.closest("[data-drag-group-key]");
+    if (!group) return null;
+    return {
+      key: group.dataset.dragGroupKey,
+      groupKey: group.dataset.dragGroupKey,
+      element: group,
+    };
+  }
+
+  return null;
+}
+
+function clearSettingsDragTargets() {
+  elements.totalsEditor
+    .querySelectorAll(".is-drag-over")
+    .forEach((item) => item.classList.remove("is-drag-over"));
+}
+
+function reorderCompetitionGroup(sourceKey, targetKey) {
+  const groups = getCompetitionGroups();
+  const fromIndex = groups.findIndex((group) => group.key === sourceKey);
+  const toIndex = groups.findIndex((group) => group.key === targetKey);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+
+  const [moved] = groups.splice(fromIndex, 1);
+  groups.splice(toIndex, 0, moved);
+
+  groups.forEach((group, index) => {
+    qualificationData.forEach((competition) => {
+      if (competition.groupKey === group.key) {
+        competition.groupOrder = index + 1;
+      }
+    });
+  });
+
+  qualificationData = normalizeQualificationData(qualificationData);
+  saveQualificationData(qualificationData);
+  renderTabs();
+  renderTotalsEditor();
+  renderChecker();
+}
+
+function reorderCompetitionWithinGroup(sourceSlug, targetSlug) {
+  const source = qualificationData.find((item) => item.slug === sourceSlug);
+  const target = qualificationData.find((item) => item.slug === targetSlug);
+  if (!source || !target || source.slug === target.slug) return;
+  if (source.groupKey !== target.groupKey) return;
+
+  const groupCompetitions = qualificationData
+    .filter((item) => item.groupKey === source.groupKey)
+    .sort((a, b) => competitionOrder(a.slug) - competitionOrder(b.slug));
+  const fromIndex = groupCompetitions.findIndex(
+    (item) => item.slug === source.slug,
+  );
+  const toIndex = groupCompetitions.findIndex(
+    (item) => item.slug === target.slug,
+  );
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+
+  const [moved] = groupCompetitions.splice(fromIndex, 1);
+  groupCompetitions.splice(toIndex, 0, moved);
+  groupCompetitions.forEach((competition, index) => {
+    competition.order = index + 1;
+  });
+
+  qualificationData = normalizeQualificationData(qualificationData);
+  saveQualificationData(qualificationData);
+  renderTabs();
+  renderTotalsEditor();
+  renderChecker();
 }
 
 function getAgeGroupKey(row) {
@@ -1466,38 +1709,9 @@ function getAddRowContext(control, competition) {
 }
 
 function suggestNewWeightClass(rows) {
-  const used = uniqueWeightClasses(
-    (rows || []).map((row) => row.weightClass),
-    [],
-  );
-  const defaultPool = [
-    "48",
-    "53",
-    "58",
-    "60",
-    "63",
-    "65",
-    "69",
-    "71",
-    "77",
-    "79",
-    "86",
-    "88",
-    "94",
-    "110",
-    "86+",
-    "110+",
-  ];
-  const nextDefault = defaultPool.find(
-    (weightClass) => !used.includes(weightClass),
-  );
-  if (nextDefault) return nextDefault;
-
-  const numericClasses = used
-    .map((weightClass) => Number(String(weightClass).replace("+", "")))
-    .filter((value) => Number.isFinite(value) && value > 0);
-  if (!numericClasses.length) return "60";
-  return String(Math.max(...numericClasses) + 1);
+  // New weight-class rows should start as 0 kg so they appear at the top
+  // of the sorted list and are easy for the user to find and edit.
+  return "0";
 }
 
 function addWeightClassRow(control) {
@@ -1942,9 +2156,25 @@ function renderCompetition() {
 
   const requirementTitles = getRequirementTitles(competition);
   const activeFilter = getActiveRequirementFilter(competition);
-  const menRows = filterRowsByRequirement(competition.men, activeFilter);
-  const womenRows = filterRowsByRequirement(competition.women, activeFilter);
+  let menRows = filterRowsByRequirement(competition.men, activeFilter);
+  let womenRows = filterRowsByRequirement(competition.women, activeFilter);
   const rule = getAgeRule(competition);
+  const mastersAgeGroups = isMastersCompetition(competition)
+    ? getMastersAgeGroups(competition)
+    : [];
+  const activeMastersAgeGroup = getActiveMainMastersAgeGroup(
+    competition,
+    mastersAgeGroups,
+  );
+
+  if (activeMastersAgeGroup) {
+    menRows = menRows.filter(
+      (row) => getAgeGroupKey(row) === activeMastersAgeGroup.key,
+    );
+    womenRows = womenRows.filter(
+      (row) => getAgeGroupKey(row) === activeMastersAgeGroup.key,
+    );
+  }
 
   elements.panel.innerHTML = `
     <div class="competition-info">
@@ -1954,9 +2184,10 @@ function renderCompetition() {
       </div>
     </div>
     ${requirementTitles.length > 1 ? renderRequirementTabs(competition, requirementTitles, activeFilter) : ""}
+    ${mastersAgeGroups.length > 1 ? renderMainMastersAgeTabs(competition, mastersAgeGroups, activeMastersAgeGroup) : ""}
     <div class="tables-grid">
-      ${renderTable("Menn", menRows, requirementTitles.length > 1, competition)}
-      ${renderTable("Kvinnur", womenRows, requirementTitles.length > 1, competition)}
+      ${renderTable("Menn", menRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
+      ${renderTable("Kvinnur", womenRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
     </div>
   `;
 
@@ -1970,21 +2201,55 @@ function renderCompetition() {
       renderCompetition();
     });
   });
+
+  elements.panel.querySelectorAll("[data-main-masters-age-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeMainMastersAgeGroupFilters[competition.slug] =
+        button.dataset.mainMastersAgeGroup;
+      renderCompetition();
+    });
+  });
+}
+
+function getActiveMainMastersAgeGroup(competition, ageGroups) {
+  if (!ageGroups.length) return null;
+  const stored = activeMainMastersAgeGroupFilters[competition.slug];
+  const found = ageGroups.find((group) => group.key === stored);
+  if (found) return found;
+  activeMainMastersAgeGroupFilters[competition.slug] = ageGroups[0].key;
+  return ageGroups[0];
+}
+
+function renderMainMastersAgeTabs(competition, ageGroups, activeGroup) {
+  const buttons = ageGroups
+    .map(
+      (group) => `
+        <button
+          class="subtab-button${activeGroup?.key === group.key ? " active" : ""}"
+          type="button"
+          data-main-masters-age-group="${escapeAttribute(group.key)}"
+        >
+          ${escapeHtml(group.label)}
+        </button>
+      `,
+    )
+    .join("");
+
+  return `<nav class="subtabs masters-main-tabs" aria-label="Vel aldursbólk">${buttons}</nav>`;
 }
 
 function renderRequirementTabs(competition, titles, activeFilter) {
-  const buttons = ["Øll", ...titles]
+  const buttons = titles
     .map((title) => {
-      const value = title === "Øll" ? "all" : title;
-      return `<button class="subtab-button${value === activeFilter ? " active" : ""}" type="button" data-requirement-filter="${escapeAttribute(value)}">${escapeHtml(title)}</button>`;
+      return `<button class="subtab-button${title === activeFilter ? " active" : ""}" type="button" data-requirement-filter="${escapeAttribute(title)}">${escapeHtml(title)}</button>`;
     })
     .join("");
 
   return `<nav class="subtabs" aria-label="Kravstig">${buttons}</nav>`;
 }
 
-function renderTable(label, rows, showTitleColumn = false, competition = null) {
-  const showAgeColumn = rows.some((row) => row.ageGroup);
+function renderTable(label, rows, showTitleColumn = false, competition = null, hideAgeColumn = false) {
+  const showAgeColumn = !hideAgeColumn && rows.some((row) => row.ageGroup);
   const visibleRequirements =
     getVisibleRequirementVariantsForCompetition(competition);
   return `
@@ -2040,9 +2305,11 @@ function requirementTitleSort(a, b) {
 
 function getActiveRequirementFilter(competition) {
   const titles = getRequirementTitles(competition);
-  const stored = activeRequirementFilters[competition.slug] || "all";
-  if (stored === "all" || titles.includes(stored)) return stored;
-  return "all";
+  if (!titles.length) return "";
+  const stored = activeRequirementFilters[competition.slug];
+  if (stored && titles.includes(stored)) return stored;
+  activeRequirementFilters[competition.slug] = titles[0];
+  return titles[0];
 }
 
 function filterRowsByRequirement(rows, activeFilter) {
@@ -2767,7 +3034,7 @@ function syncEditModalRequirementLevels() {
     ["48", "53", "58", "63", "69", "77", "86", "86+"],
   );
 
-  competition.men = rebuildRowsForCompetition(
+  competition.men = rebuildRowsForEditSave(
     competition,
     "men",
     competitionType,
@@ -2775,7 +3042,7 @@ function syncEditModalRequirementLevels() {
     levels,
     mastersAgeGroups,
   );
-  competition.women = rebuildRowsForCompetition(
+  competition.women = rebuildRowsForEditSave(
     competition,
     "women",
     competitionType,
@@ -2895,6 +3162,114 @@ function rebuildRowsForCompetition(
   }));
 }
 
+
+function getMastersGroupKeyFromDefinition(group) {
+  return [group?.label || "Masters", group?.min ?? "", group?.max ?? null].join("|");
+}
+
+function sortEditableRows(rows) {
+  return normalizePlusWeightClasses(normalizeRows(rows || [], "masters")).sort(
+    (a, b) => {
+      const ageDiff = String(getAgeGroupKey(a)).localeCompare(
+        String(getAgeGroupKey(b)),
+        "fo",
+      );
+      const titleDiff = String(a.title || "").localeCompare(
+        String(b.title || ""),
+        "fo",
+      );
+      return ageDiff || titleDiff || weightClassSort(a.weightClass, b.weightClass);
+    },
+  );
+}
+
+function rebuildRowsForEditSave(
+  existingCompetition,
+  genderKey,
+  competitionType,
+  fallbackClasses,
+  levels,
+  mastersAgeGroups,
+) {
+  const existingRows = existingCompetition?.[genderKey] || [];
+  const oldTotals = getTotalsMap(existingRows);
+  const oldTitles = new Set(getRequirementTitles(existingCompetition));
+  const desiredTitles = new Set(levels && levels.length ? levels : ["Úttøkukrav"]);
+  const titleChanged =
+    oldTitles.size !== desiredTitles.size ||
+    [...desiredTitles].some((title) => !oldTitles.has(title));
+
+  if (competitionType !== "masters") {
+    const keptRows = titleChanged
+      ? []
+      : existingRows
+          .filter((row) => desiredTitles.has(row.title || "Úttøkukrav"))
+          .map((row) => ({ ...row }));
+    const baseClasses = uniqueWeightClasses(
+      (titleChanged ? existingRows : keptRows).map((row) => row.weightClass),
+      fallbackClasses,
+    );
+
+    const generatedRows = titleChanged ? buildRows(baseClasses, levels) : [];
+    const rows = [...keptRows, ...generatedRows].map((row) => ({
+      ...row,
+      original: getMatchingOriginal(oldTotals, row),
+    }));
+
+    return normalizePlusWeightClasses(normalizeRows(rows, competitionType)).sort(
+      (a, b) => {
+        const titleDiff = String(a.title || "").localeCompare(
+          String(b.title || ""),
+          "fo",
+        );
+        return titleDiff || weightClassSort(a.weightClass, b.weightClass);
+      },
+    );
+  }
+
+  const selectedAgeGroups = mastersAgeGroups && mastersAgeGroups.length
+    ? mastersAgeGroups
+    : getMastersAgeGroups(existingCompetition);
+  const selectedAgeKeys = new Set(
+    selectedAgeGroups.map((group) => getMastersGroupKeyFromDefinition(group)),
+  );
+
+  const keptRows = titleChanged
+    ? []
+    : existingRows
+        .filter(
+          (row) =>
+            desiredTitles.has(row.title || "Úttøkukrav") &&
+            selectedAgeKeys.has(getAgeGroupKey(row)),
+        )
+        .map((row) => ({ ...row }));
+
+  const generatedRows = [];
+  selectedAgeGroups.forEach((ageGroup) => {
+    const ageKey = getMastersGroupKeyFromDefinition(ageGroup);
+    const existingAgeRows = existingRows.filter(
+      (row) => getAgeGroupKey(row) === ageKey,
+    );
+    const keptAgeRows = keptRows.filter((row) => getAgeGroupKey(row) === ageKey);
+    const baseSource = titleChanged ? existingAgeRows : keptAgeRows;
+    const groupClasses = uniqueWeightClasses(
+      baseSource.map((row) => row.weightClass),
+      uniqueWeightClasses(existingAgeRows.map((row) => row.weightClass), fallbackClasses),
+    );
+
+    if (titleChanged || !keptAgeRows.length) {
+      generatedRows.push(...buildMastersRows(groupClasses, levels, [ageGroup]));
+    }
+  });
+
+  const rows = [...keptRows, ...generatedRows].map((row) => ({
+    ...row,
+    original: getMatchingOriginal(oldTotals, row),
+  }));
+
+  return sortEditableRows(rows);
+}
+
 function createCompetitionFromDialog() {
   const isNewGroup = addCompetitionState.mode === "new-group";
   const isEditMode = addCompetitionState.mode === "edit-competition";
@@ -2999,7 +3374,7 @@ function createCompetitionFromDialog() {
       competitionYear,
       type: competitionType,
       ageRule,
-      men: rebuildRowsForCompetition(
+      men: rebuildRowsForEditSave(
         existingCompetition,
         "men",
         competitionType,
@@ -3007,7 +3382,7 @@ function createCompetitionFromDialog() {
         levels,
         mastersAgeGroups,
       ),
-      women: rebuildRowsForCompetition(
+      women: rebuildRowsForEditSave(
         existingCompetition,
         "women",
         competitionType,
@@ -3109,6 +3484,7 @@ function deleteCompetition(slug) {
   if (activeTotalsCompetitionSlug === slug)
     activeTotalsCompetitionSlug = qualificationData[0]?.slug || "";
   delete activeRequirementFilters[slug];
+  delete activeMainMastersAgeGroupFilters[slug];
   delete activeTotalsMastersAgeGroupKey[slug];
 
   saveQualificationData(qualificationData);
@@ -3203,6 +3579,7 @@ function deleteCompetitionGroup(groupKey) {
     activeTotalsCompetitionSlug = qualificationData[0]?.slug || "";
   removedSlugs.forEach((slug) => {
     delete activeRequirementFilters[slug];
+  delete activeMainMastersAgeGroupFilters[slug];
     delete activeTotalsMastersAgeGroupKey[slug];
   });
   if (activeResultsGroup === groupKey) activeResultsGroup = "all";

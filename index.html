@@ -12,15 +12,32 @@
         <div>
           <h1>Úttøkukrøv</h1>
         </div>
-        <button
-          class="settings-button"
-          id="openSettings"
-          type="button"
-          aria-haspopup="dialog"
-        >
-          <span aria-hidden="true">⚙</span>
-          Stillingar
-        </button>
+        <div class="header-actions" aria-label="Atgongd og stillingar">
+          <button
+            class="settings-button"
+            id="openLogin"
+            type="button"
+            aria-haspopup="dialog"
+          >
+            Rita inn
+          </button>
+          <button
+            class="settings-button is-hidden"
+            id="openSettings"
+            type="button"
+            aria-haspopup="dialog"
+          >
+            <span aria-hidden="true">⚙</span>
+            Stillingar
+          </button>
+          <button
+            class="secondary-button is-hidden"
+            id="mainLogoutButton"
+            type="button"
+          >
+            Rita út
+          </button>
+        </div>
       </div>
     </header>
 
@@ -106,8 +123,8 @@
           </div>
           <button
             class="icon-button"
-            value="cancel"
-            type="submit"
+            id="closeAuthDialog"
+            type="button"
             aria-label="Lat login aftur"
           >
             ×
@@ -137,7 +154,7 @@
         <p class="auth-error" id="authError" role="alert"></p>
 
         <div class="modal-actions">
-          <button class="secondary-button" value="cancel" type="submit">
+          <button class="secondary-button" id="cancelAuthDialog" type="button">
             Angra
           </button>
           <button class="primary-button" id="authSubmitButton" type="submit">
@@ -155,13 +172,6 @@
             <h2>Stýr úttøkukrøvunum</h2>
           </div>
           <div class="modal-header-actions">
-            <button
-              class="secondary-button logout-button"
-              id="logoutButton"
-              type="button"
-            >
-              Rita út
-            </button>
             <button
               class="icon-button"
               value="cancel"
@@ -539,6 +549,7 @@
         getFirestore,
         doc,
         getDoc,
+        getDocFromServer,
         setDoc,
         serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
@@ -566,6 +577,7 @@
           signOut,
           doc,
           getDoc,
+          getDocFromServer,
           setDoc,
           serverTimestamp,
         };

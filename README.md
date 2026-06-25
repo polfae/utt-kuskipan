@@ -70,3 +70,7 @@ service cloud.firestore {
   }
 }
 ```
+
+## Update
+- Settings modal no longer includes its own logout button; logout remains on the main page after login.
+- Masters competitions on the main page now use age-group tabs, so only one masters age group is shown at a time.
