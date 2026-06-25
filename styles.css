@@ -1859,3 +1859,42 @@ tbody tr:hover {
 .competition-card {
   border: 1px solid #e1e6ee !important;
 }
+
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logout-button {
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.auth-dialog {
+  width: min(620px, calc(100% - 30px));
+}
+
+.auth-modal .settings-grid,
+.auth-grid {
+  grid-template-columns: 1fr;
+  margin-bottom: 10px;
+}
+
+.auth-help-text {
+  margin-top: 14px;
+}
+
+.auth-error {
+  min-height: 20px;
+  color: var(--danger);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+@media (max-width: 680px) {
+  .modal-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

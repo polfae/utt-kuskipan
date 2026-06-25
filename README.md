@@ -46,3 +46,27 @@ Cards and content containers now have a subtle permanent elevated look instead o
 ## Latest change
 
 Settings and edit modals are now top-aligned so switching tabs changes only the bottom height of the modal, not the top position.
+
+## Firebase backend
+
+Denne útgávan brúkar Firebase Authentication og Cloud Firestore.
+
+- Úttøkukrøvini kunnu síggjast alment.
+- Stillingar krevja innriting við Firebase Authentication.
+- Broytingar verða goymdar í Firestore í skjalinum `qualificationSystems/faroe`.
+- `localStorage` verður framvegis brúkt sum lokal cache/fallback.
+
+Firestore reglur:
+
+```js
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /qualificationSystems/{systemId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+```

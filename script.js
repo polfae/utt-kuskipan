@@ -4,6 +4,9 @@ const DEFAULT_SETTINGS = {
   threePercentValue: 3,
 };
 
+const FIREBASE_COLLECTION = "qualificationSystems";
+const FIREBASE_SYSTEM_ID = "faroe";
+
 const QUALIFICATION_YEAR = new Date().getFullYear();
 
 const DEFAULT_GROUPS = [
@@ -88,6 +91,15 @@ let activeResultsGroup = "all";
 let activeTotalsCompetitionSlug = qualificationData[0]?.slug || "";
 let activeTotalsRequirementTitle = "";
 let activeTotalsMastersAgeGroupKey = {};
+let firebaseState = {
+  services: null,
+  currentUser: null,
+  ready: false,
+  loadingRemote: false,
+  applyingRemote: false,
+  saveTimer: null,
+  lastSaveError: null,
+};
 
 const elements = {
   tabs: document.getElementById("competitionTabs"),
@@ -144,6 +156,13 @@ const elements = {
   editGroupName: document.getElementById("editGroupName"),
   editGroupShortLabel: document.getElementById("editGroupShortLabel"),
   saveGroupButton: document.getElementById("saveGroupButton"),
+  authDialog: document.getElementById("authDialog"),
+  authForm: document.getElementById("authForm"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
+  authError: document.getElementById("authError"),
+  authSubmitButton: document.getElementById("authSubmitButton"),
+  logoutButton: document.getElementById("logoutButton"),
 };
 
 init();
@@ -154,6 +173,7 @@ function init() {
   renderCompetition();
   renderChecker();
   bindEvents();
+  initFirebaseIntegration();
 }
 
 function bindEvents() {
@@ -167,14 +187,10 @@ function bindEvents() {
   });
   updateThreePercentRuleButton();
 
-  elements.openSettings.addEventListener("click", () => {
-    elements.percentA.value = settings.percentA;
-    elements.percentB.value = settings.percentB;
-    elements.threePercentValue.value = settings.threePercentValue;
-    setSettingsTab(activeSettingsTab);
-    renderTotalsEditor();
-    elements.settingsDialog.showModal();
-  });
+  elements.openSettings.addEventListener("click", handleOpenSettings);
+
+  elements.authForm?.addEventListener("submit", handleAuthSubmit);
+  elements.logoutButton?.addEventListener("click", handleLogout);
 
   elements.settingsForm.addEventListener("submit", () => {
     const percentA = cleanPercentage(
@@ -441,6 +457,214 @@ function bindEvents() {
   });
 }
 
+
+function handleOpenSettings() {
+  if (!firebaseState.services) {
+    const message = window.firebaseServicesError
+      ? "Firebase kundi ikki innlesast. Royn aftur seinni."
+      : "Login verður innlisið. Royn aftur um eina løtu.";
+    window.alert(message);
+    return;
+  }
+
+  if (!firebaseState.currentUser) {
+    openAuthDialog();
+    return;
+  }
+
+  openSettingsDialog();
+}
+
+function openSettingsDialog() {
+  elements.percentA.value = settings.percentA;
+  elements.percentB.value = settings.percentB;
+  elements.threePercentValue.value = settings.threePercentValue;
+  setSettingsTab(activeSettingsTab);
+  renderTotalsEditor();
+  elements.settingsDialog.showModal();
+}
+
+function openAuthDialog() {
+  if (!elements.authDialog) return;
+  elements.authError.textContent = "";
+  elements.authPassword.value = "";
+  elements.authDialog.showModal();
+  setTimeout(() => elements.authEmail?.focus(), 0);
+}
+
+async function handleAuthSubmit(event) {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  if (!firebaseState.services) return;
+
+  const email = elements.authEmail.value.trim();
+  const password = elements.authPassword.value;
+  elements.authError.textContent = "";
+  elements.authSubmitButton.disabled = true;
+  elements.authSubmitButton.textContent = "Ritar inn...";
+
+  try {
+    await firebaseState.services.signInWithEmailAndPassword(
+      firebaseState.services.auth,
+      email,
+      password,
+    );
+    elements.authDialog.close();
+    openSettingsDialog();
+  } catch (error) {
+    elements.authError.textContent = getReadableAuthError(error);
+  } finally {
+    elements.authSubmitButton.disabled = false;
+    elements.authSubmitButton.textContent = "Rita inn";
+  }
+}
+
+async function handleLogout() {
+  if (!firebaseState.services) return;
+  await firebaseState.services.signOut(firebaseState.services.auth);
+  elements.settingsDialog.close();
+}
+
+function getReadableAuthError(error) {
+  const code = error?.code || "";
+  if (code.includes("invalid-credential") || code.includes("wrong-password")) {
+    return "Teldupostur ella loyniorð er ikki rætt.";
+  }
+  if (code.includes("user-not-found")) {
+    return "Brúkarin varð ikki funnin.";
+  }
+  if (code.includes("too-many-requests")) {
+    return "Ov nógvar royndir. Royn aftur seinni.";
+  }
+  if (code.includes("network-request-failed")) {
+    return "Eingin netsamband. Royn aftur.";
+  }
+  return "Innriting miseydnaðist. Royn aftur.";
+}
+
+function initFirebaseIntegration() {
+  if (window.firebaseServices) {
+    attachFirebaseServices(window.firebaseServices);
+    return;
+  }
+
+  window.addEventListener(
+    "firebase-services-ready",
+    () => attachFirebaseServices(window.firebaseServices),
+    { once: true },
+  );
+
+  window.addEventListener(
+    "firebase-services-error",
+    () => {
+      firebaseState.ready = false;
+      console.error("Firebase initialization failed", window.firebaseServicesError);
+    },
+    { once: true },
+  );
+}
+
+function attachFirebaseServices(services) {
+  if (!services || firebaseState.services) return;
+  firebaseState.services = services;
+  firebaseState.ready = true;
+
+  services.onAuthStateChanged(services.auth, (user) => {
+    firebaseState.currentUser = user || null;
+  });
+
+  loadSystemFromCloud();
+}
+
+async function loadSystemFromCloud() {
+  if (!firebaseState.services) return;
+  firebaseState.loadingRemote = true;
+  try {
+    const { db, doc, getDoc } = firebaseState.services;
+    const reference = doc(db, FIREBASE_COLLECTION, FIREBASE_SYSTEM_ID);
+    const snapshot = await getDoc(reference);
+    if (!snapshot.exists()) return;
+
+    const remote = snapshot.data();
+    firebaseState.applyingRemote = true;
+
+    if (Array.isArray(remote.qualificationData)) {
+      qualificationData = normalizeQualificationData(remote.qualificationData);
+      localStorage.setItem(
+        "qualificationOriginalTotals",
+        JSON.stringify(qualificationData),
+      );
+    }
+
+    if (remote.settings && typeof remote.settings === "object") {
+      settings = normalizeSettings(remote.settings);
+      localStorage.setItem(
+        "qualificationPercentageSettings",
+        JSON.stringify(settings),
+      );
+    }
+
+    activeCompetitionSlug = qualificationData.some(
+      (competition) => competition.slug === activeCompetitionSlug,
+    )
+      ? activeCompetitionSlug
+      : qualificationData[0]?.slug || "";
+    activeTotalsCompetitionSlug = activeCompetitionSlug;
+
+    renderTabs();
+    renderActiveSettings();
+    renderCompetition();
+    renderChecker();
+    renderTotalsEditor();
+  } catch (error) {
+    console.error("Could not load qualification system from Firestore", error);
+  } finally {
+    firebaseState.applyingRemote = false;
+    firebaseState.loadingRemote = false;
+  }
+}
+
+function normalizeSettings(value) {
+  return {
+    percentA: cleanPercentage(value.percentA, DEFAULT_SETTINGS.percentA),
+    percentB: cleanPercentage(value.percentB, DEFAULT_SETTINGS.percentB),
+    threePercentValue: cleanPercentage(
+      value.threePercentValue,
+      DEFAULT_SETTINGS.threePercentValue,
+    ),
+  };
+}
+
+function scheduleCloudSave() {
+  if (firebaseState.applyingRemote) return;
+  if (!firebaseState.services || !firebaseState.currentUser) return;
+  window.clearTimeout(firebaseState.saveTimer);
+  firebaseState.saveTimer = window.setTimeout(saveSystemToCloud, 450);
+}
+
+async function saveSystemToCloud() {
+  if (!firebaseState.services || !firebaseState.currentUser) return;
+
+  try {
+    const { db, doc, setDoc, serverTimestamp } = firebaseState.services;
+    const reference = doc(db, FIREBASE_COLLECTION, FIREBASE_SYSTEM_ID);
+    await setDoc(
+      reference,
+      {
+        qualificationData,
+        settings,
+        updatedAt: serverTimestamp(),
+        updatedBy: firebaseState.currentUser.email || null,
+      },
+      { merge: true },
+    );
+    firebaseState.lastSaveError = null;
+  } catch (error) {
+    firebaseState.lastSaveError = error;
+    console.error("Could not save qualification system to Firestore", error);
+  }
+}
+
 function loadSettings() {
   const stored = localStorage.getItem("qualificationPercentageSettings");
   if (!stored) return { ...DEFAULT_SETTINGS };
@@ -465,6 +689,7 @@ function saveSettings(value) {
     "qualificationPercentageSettings",
     JSON.stringify(value),
   );
+  scheduleCloudSave();
 }
 
 function loadQualificationData() {
@@ -482,6 +707,7 @@ function loadQualificationData() {
 
 function saveQualificationData(value) {
   localStorage.setItem("qualificationOriginalTotals", JSON.stringify(value));
+  scheduleCloudSave();
 }
 
 function normalizeQualificationData(data) {

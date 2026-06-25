@@ -97,6 +97,56 @@
       </section>
     </main>
 
+    <dialog class="settings-dialog auth-dialog" id="authDialog">
+      <form method="dialog" class="settings-modal auth-modal" id="authForm">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Login</p>
+            <h2>Rita inn fyri at broyta stillingar</h2>
+          </div>
+          <button
+            class="icon-button"
+            value="cancel"
+            type="submit"
+            aria-label="Lat login aftur"
+          >
+            ×
+          </button>
+        </div>
+
+        <p class="settings-help-text auth-help-text">
+          Stillingar kunnu bert broytast av brúkarum við atgongd. Úttøkukrøvini eru framvegis almenn at síggja.
+        </p>
+
+        <div class="settings-grid auth-grid">
+          <label>
+            Teldupostur
+            <input id="authEmail" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Loyniorð
+            <input
+              id="authPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+        </div>
+
+        <p class="auth-error" id="authError" role="alert"></p>
+
+        <div class="modal-actions">
+          <button class="secondary-button" value="cancel" type="submit">
+            Angra
+          </button>
+          <button class="primary-button" id="authSubmitButton" type="submit">
+            Rita inn
+          </button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="settings-dialog wide" id="settingsDialog">
       <form method="dialog" class="settings-modal" id="settingsForm">
         <div class="modal-header">
@@ -104,14 +154,23 @@
             <p class="eyebrow">Stillingar</p>
             <h2>Stýr úttøkukrøvunum</h2>
           </div>
-          <button
-            class="icon-button"
-            value="cancel"
-            type="submit"
-            aria-label="Lat stillingar aftur"
-          >
-            ×
-          </button>
+          <div class="modal-header-actions">
+            <button
+              class="secondary-button logout-button"
+              id="logoutButton"
+              type="button"
+            >
+              Rita út
+            </button>
+            <button
+              class="icon-button"
+              value="cancel"
+              type="submit"
+              aria-label="Lat stillingar aftur"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <nav class="settings-tabs" aria-label="Stillingar">
@@ -337,6 +396,9 @@
 
         <div class="choice-section">
           <div class="choice-heading">Kravstig</div>
+          <div class="choice-help">
+            Vel antin Úttøkukrav ella eitt ella fleiri av A, B og C.
+          </div>
           <div
             class="choice-buttons multi-choice"
             id="requirementLevelChoices"
@@ -465,6 +527,54 @@
       </form>
     </dialog>
 
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDZwSlIxSRKgZtDGYKLLnVADIIsnHcCMDU",
+        authDomain: "qualification-totals.firebaseapp.com",
+        projectId: "qualification-totals",
+        storageBucket: "qualification-totals.firebasestorage.app",
+        messagingSenderId: "386769235378",
+        appId: "1:386769235378:web:f5a3342cb5c80c44f948ab",
+        measurementId: "G-QRWJW3HLXP",
+      };
+
+      try {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.firebaseServices = {
+          auth,
+          db,
+          onAuthStateChanged,
+          signInWithEmailAndPassword,
+          signOut,
+          doc,
+          getDoc,
+          setDoc,
+          serverTimestamp,
+        };
+        window.dispatchEvent(new Event("firebase-services-ready"));
+      } catch (error) {
+        window.firebaseServicesError = error;
+        window.dispatchEvent(new Event("firebase-services-error"));
+      }
+    </script>
     <script src="data.js"></script>
     <script src="script.js"></script>
   </body>
