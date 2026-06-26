@@ -1953,3 +1953,282 @@ tbody tr:hover {
   background: #f8fafc !important;
   box-shadow: inset 3px 0 0 rgba(15, 23, 42, 0.28), 0 8px 18px rgba(15, 23, 42, 0.06) !important;
 }
+
+/* Mobile layout refinements */
+@media (max-width: 640px) {
+  /* 1–2: keep title and login/settings actions on one compact header row */
+  .site-header {
+    padding: 18px 12px 8px;
+  }
+
+  .header-content {
+    width: min(100% - 16px, 1180px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+
+  .header-content h1 {
+    font-size: clamp(1.45rem, 8vw, 2rem);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    margin-left: auto;
+    min-width: 0;
+  }
+
+  .header-actions .settings-button,
+  .header-actions .secondary-button {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    min-height: 32px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    white-space: nowrap;
+  }
+
+  #openSettings span {
+    display: none;
+  }
+
+  /* 4: keep close buttons in the top-right corner of all modals */
+  .modal-header,
+  .add-competition-modal > .modal-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+  }
+
+  .modal-header > div:first-child {
+    min-width: 0;
+    padding-right: 8px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.12rem;
+  }
+
+  .modal-header .icon-button,
+  .modal-header-actions {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    margin-left: auto;
+  }
+
+  .modal-header-actions {
+    display: inline-flex !important;
+    justify-content: flex-end !important;
+  }
+
+  /* 5: keep the three settings tabs on one row */
+  .settings-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: visible !important;
+    gap: 2px !important;
+    padding: 4px !important;
+    border-radius: 999px !important;
+  }
+
+  .settings-tab-button {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    min-height: 34px;
+    padding: 0 5px !important;
+    font-size: 0.69rem;
+    white-space: nowrap;
+  }
+
+  .settings-tab-button[data-settings-tab="threePercent"] {
+    font-size: 0.66rem;
+  }
+
+  /* 3 + 6: compact tables so mobile users do not need horizontal scrolling */
+  .table-wrap,
+  .qualified-table-wrap,
+  .edit-table-wrap {
+    overflow-x: visible !important;
+  }
+
+  table,
+  .qualified-table,
+  .edit-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  th,
+  td,
+  .table-card th,
+  .table-card td,
+  .qualified-table th,
+  .qualified-table td {
+    padding: 7px 5px !important;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  th,
+  .table-card th,
+  .qualified-table th {
+    font-size: 0.55rem;
+    letter-spacing: 0.035em;
+  }
+
+  .table-card h3,
+  .edit-gender-card h3,
+  .qualified-card-header {
+    padding: 10px 11px;
+  }
+
+  .qualified-card-header {
+    align-items: flex-start;
+  }
+
+  .qualified-card-header h4 {
+    font-size: 0.9rem;
+  }
+
+  .qualified-card-header span {
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .qualified-table th:nth-child(1),
+  .qualified-table td:nth-child(1) {
+    width: 24%;
+  }
+
+  .qualified-table th:nth-child(2),
+  .qualified-table td:nth-child(2) {
+    width: 25%;
+  }
+
+  .qualified-table th:nth-child(3),
+  .qualified-table td:nth-child(3) {
+    width: 22%;
+  }
+
+  .qualified-table th:nth-child(4),
+  .qualified-table td:nth-child(4),
+  .qualified-table th:nth-child(5),
+  .qualified-table td:nth-child(5) {
+    width: 14.5%;
+  }
+
+  .edit-gender-grid {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .edit-gender-card-header {
+    padding: 10px 11px;
+    gap: 8px;
+  }
+
+  .add-weightclass-button {
+    min-height: 26px;
+    padding: 0 8px;
+    font-size: 0.68rem;
+  }
+
+  .weightclass-edit-cell {
+    gap: 2px;
+  }
+
+  .weightclass-edit-cell span {
+    font-size: 0.68rem;
+  }
+
+  .weightclass-edit-input {
+    width: 38px !important;
+    max-width: 38px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .total-edit-input,
+  .agegroup-number-input,
+  .agegroup-edit-input,
+  .masters-age-editor input {
+    width: 100%;
+    max-width: 58px;
+    min-width: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .row-action-heading,
+  .row-action-cell {
+    width: 26px !important;
+  }
+
+  .row-delete-button {
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
+  }
+
+  .edit-table th:last-child,
+  .edit-table td:last-child {
+    width: 26px;
+  }
+
+  .totals-requirement-tabs,
+  .subtabs,
+  .results-tabs {
+    gap: 5px;
+  }
+
+  .subtab-button,
+  .results-tab-button,
+  .totals-requirement-tab {
+    min-height: 32px;
+    padding: 0 9px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .header-actions .settings-button,
+  .header-actions .secondary-button {
+    padding: 0 7px;
+    font-size: 0.68rem;
+  }
+
+  .header-content h1 {
+    font-size: 1.36rem;
+  }
+
+  th,
+  td,
+  .table-card th,
+  .table-card td,
+  .qualified-table th,
+  .qualified-table td {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    font-size: 0.68rem;
+  }
+
+  th,
+  .table-card th,
+  .qualified-table th {
+    font-size: 0.5rem;
+  }
+}
