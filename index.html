@@ -51,12 +51,33 @@
         </div>
 
         <form class="checker-form" id="checkerForm">
-          <label>
+          <label class="gender-selector-field">
             Kyn
-            <select id="athleteGender">
-              <option value="men">Menn</option>
-              <option value="women">Kvinnur</option>
-            </select>
+            <input id="athleteGender" type="hidden" value="men" />
+            <div
+              class="gender-segment"
+              role="radiogroup"
+              aria-label="Vel kyn"
+            >
+              <button
+                class="gender-segment-button active"
+                type="button"
+                data-gender="men"
+                role="radio"
+                aria-checked="true"
+              >
+                Maður
+              </button>
+              <button
+                class="gender-segment-button"
+                type="button"
+                data-gender="women"
+                role="radio"
+                aria-checked="false"
+              >
+                Kvinna
+              </button>
+            </div>
           </label>
           <label>
             Føðiár

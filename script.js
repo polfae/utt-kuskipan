@@ -113,6 +113,7 @@ const elements = {
   panel: document.getElementById("competitionPanel"),
   activeSettings: document.getElementById("activeSettings"),
   gender: document.getElementById("athleteGender"),
+  genderButtons: document.querySelectorAll("[data-gender]"),
   birthYear: document.getElementById("athleteBirthYear"),
   total: document.getElementById("athleteTotal"),
   bodyweight: document.getElementById("athleteBodyweight"),
@@ -188,8 +189,28 @@ function init() {
   initFirebaseIntegration();
 }
 
+
+function updateGenderSegment() {
+  const activeValue = elements.gender?.value || "men";
+  elements.genderButtons?.forEach((button) => {
+    const isActive = button.dataset.gender === activeValue;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-checked", isActive ? "true" : "false");
+  });
+}
+
 function bindEvents() {
   elements.gender.addEventListener("change", renderChecker);
+  elements.genderButtons?.forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.gender;
+      if (!value || elements.gender.value === value) return;
+      elements.gender.value = value;
+      updateGenderSegment();
+      elements.gender.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+  updateGenderSegment();
   elements.birthYear.addEventListener("input", renderChecker);
   elements.total.addEventListener("input", renderChecker);
   elements.bodyweight.addEventListener("input", renderChecker);
