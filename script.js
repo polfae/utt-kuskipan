@@ -104,6 +104,9 @@ let firebaseState = {
   ready: false,
   loadingRemote: false,
   applyingRemote: false,
+  cloudLoadComplete: false,
+  cloudLoadFailed: false,
+  remoteDocumentExists: false,
   saveTimer: null,
   lastSaveError: null,
 };
@@ -637,6 +640,8 @@ function attachFirebaseServices(services) {
 async function loadSystemFromCloud() {
   if (!firebaseState.services) return;
   firebaseState.loadingRemote = true;
+  firebaseState.cloudLoadComplete = false;
+  firebaseState.cloudLoadFailed = false;
   try {
     const { db, doc, getDoc, getDocFromServer } = firebaseState.services;
     const reference = doc(db, FIREBASE_COLLECTION, FIREBASE_SYSTEM_ID);
@@ -649,12 +654,17 @@ async function loadSystemFromCloud() {
         : await getDoc(reference);
     } catch (serverError) {
       console.warn(
-        "Could not load qualification system directly from Firestore server. Falling back to cached Firestore/local data.",
+        "Could not load qualification system directly from Firestore server. Falling back to Firestore cache only; local/default data will not be saved over the database.",
         serverError,
       );
       snapshot = await getDoc(reference);
     }
-    if (!snapshot.exists()) return;
+
+    firebaseState.remoteDocumentExists = snapshot.exists();
+    if (!snapshot.exists()) {
+      firebaseState.cloudLoadComplete = true;
+      return;
+    }
 
     const remote = snapshot.data();
     firebaseState.applyingRemote = true;
@@ -687,7 +697,10 @@ async function loadSystemFromCloud() {
     renderCompetition();
     renderChecker();
     renderTotalsEditor();
+    firebaseState.cloudLoadComplete = true;
   } catch (error) {
+    firebaseState.cloudLoadFailed = true;
+    firebaseState.cloudLoadComplete = false;
     console.error("Could not load qualification system from Firestore", error);
   } finally {
     firebaseState.applyingRemote = false;
@@ -706,15 +719,25 @@ function normalizeSettings(value) {
   };
 }
 
+function canWriteCloudData() {
+  return (
+    firebaseState.services &&
+    firebaseState.currentUser &&
+    firebaseState.cloudLoadComplete &&
+    !firebaseState.cloudLoadFailed &&
+    !firebaseState.loadingRemote &&
+    !firebaseState.applyingRemote
+  );
+}
+
 function scheduleCloudSave() {
-  if (firebaseState.applyingRemote) return;
-  if (!firebaseState.services || !firebaseState.currentUser) return;
+  if (!canWriteCloudData()) return;
   window.clearTimeout(firebaseState.saveTimer);
   firebaseState.saveTimer = window.setTimeout(saveSystemToCloud, 450);
 }
 
 async function saveSystemToCloud() {
-  if (!firebaseState.services || !firebaseState.currentUser) return;
+  if (!canWriteCloudData()) return;
 
   try {
     const { db, doc, setDoc, serverTimestamp } = firebaseState.services;

@@ -74,3 +74,8 @@ service cloud.firestore {
 ## Update
 - Settings modal no longer includes its own logout button; logout remains on the main page after login.
 - Masters competitions on the main page now use age-group tabs, so only one masters age group is shown at a time.
+
+
+## Firestore as source of truth
+
+This version protects the saved qualification data in Firestore. The built-in data files are only fallback/startup data and are not allowed to overwrite Firestore before the database has finished loading. Cloud saving is blocked until Firestore has been checked, so future website code updates should not reset the qualification totals stored in `qualificationSystems / faroe`.
