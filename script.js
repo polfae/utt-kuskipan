@@ -1,8 +1,9 @@
 const DEFAULT_SETTINGS = {
   percentA: 5,
   percentB: 10,
-  threePercentValue: 3,
 };
+
+const DEFAULT_COMPETITION_RULE_PERCENT = 3;
 
 const FIREBASE_COLLECTION = "qualificationSystems";
 const FIREBASE_SYSTEM_ID = "faroe";
@@ -62,6 +63,10 @@ let addCompetitionState = {
   mode: "new-group",
   groupKey: "",
   competitionSlug: "",
+  originalQualificationData: null,
+  originalSerialized: "",
+  isSaving: false,
+  formDirty: false,
 };
 let editGroupState = { groupKey: "" };
 
@@ -111,6 +116,79 @@ let firebaseState = {
   lastSaveError: null,
 };
 
+
+function isEditingCompetitionDraft() {
+  return (
+    addCompetitionState.mode === "edit-competition" &&
+    Boolean(addCompetitionState.competitionSlug) &&
+    Boolean(addCompetitionState.originalSerialized) &&
+    !addCompetitionState.isSaving
+  );
+}
+
+function markAddCompetitionDirty() {
+  if (addCompetitionState.mode === "edit-competition") {
+    addCompetitionState.formDirty = true;
+  }
+}
+
+function hasUnsavedCompetitionChanges() {
+  if (
+    addCompetitionState.mode !== "edit-competition" ||
+    !addCompetitionState.originalSerialized
+  ) {
+    return false;
+  }
+  return (
+    addCompetitionState.formDirty ||
+    JSON.stringify(qualificationData) !== addCompetitionState.originalSerialized
+  );
+}
+
+function persistQualificationData(force = false) {
+  if (!force && isEditingCompetitionDraft()) return;
+  saveQualificationData(qualificationData);
+}
+
+function resetAddCompetitionDraftState() {
+  addCompetitionState.originalQualificationData = null;
+  addCompetitionState.originalSerialized = "";
+  addCompetitionState.isSaving = false;
+  addCompetitionState.formDirty = false;
+}
+
+function restoreUnsavedCompetitionDraft() {
+  if (!addCompetitionState.originalQualificationData) return;
+  qualificationData = normalizeQualificationData(
+    deepClone(addCompetitionState.originalQualificationData),
+  );
+  persistQualificationData(true);
+  renderTabs();
+  renderTotalsEditor();
+  renderCompetition();
+  renderChecker();
+}
+
+function closeAddCompetitionDialogWithoutSaving() {
+  restoreUnsavedCompetitionDraft();
+  resetAddCompetitionDraftState();
+  elements.addCompetitionDialog.close();
+}
+
+function confirmCloseAddCompetitionDialog() {
+  if (!hasUnsavedCompetitionChanges()) {
+    closeAddCompetitionDialogWithoutSaving();
+    return true;
+  }
+
+  const confirmed = window.confirm(
+    "Tú hevur broytingar, sum ikki eru goymdar. Ert tú vís/ur í, at tú vilt lata aftur uttan at goyma?",
+  );
+  if (!confirmed) return false;
+
+  closeAddCompetitionDialogWithoutSaving();
+  return true;
+}
 const elements = {
   tabs: document.getElementById("competitionTabs"),
   panel: document.getElementById("competitionPanel"),
@@ -130,13 +208,11 @@ const elements = {
   closeAuthDialog: document.getElementById("closeAuthDialog"),
   cancelAuthDialog: document.getElementById("cancelAuthDialog"),
   settingsForm: document.getElementById("settingsForm"),
-  percentA: document.getElementById("percentA"),
-  percentB: document.getElementById("percentB"),
   threePercentValue: document.getElementById("threePercentValue"),
   resetThreePercent: document.getElementById("resetThreePercent"),
   resetSettings: document.getElementById("resetSettings"),
   settingsTabs: document.querySelectorAll("[data-settings-tab]"),
-  percentageSettingsPanel: document.getElementById("percentageSettingsPanel"),
+  settingsTotalsAction: document.getElementById("settingsTotalsAction"),
   threePercentSettingsPanel: document.getElementById(
     "threePercentSettingsPanel",
   ),
@@ -233,23 +309,6 @@ function bindEvents() {
   elements.mainLogoutButton?.addEventListener("click", handleLogout);
 
   elements.settingsForm.addEventListener("submit", () => {
-    const percentA = cleanPercentage(
-      elements.percentA.value,
-      DEFAULT_SETTINGS.percentA,
-    );
-    const percentB = cleanPercentage(
-      elements.percentB.value,
-      DEFAULT_SETTINGS.percentB,
-    );
-    const threePercentValue = cleanPercentage(
-      elements.threePercentValue.value,
-      DEFAULT_SETTINGS.threePercentValue,
-    );
-    settings = {
-      percentA,
-      percentB,
-      threePercentValue,
-    };
     saveSettings(settings);
     renderActiveSettings();
     renderCompetition();
@@ -283,6 +342,18 @@ function bindEvents() {
     }
   });
   elements.totalsEditor.addEventListener("change", (event) => {
+    const adjustmentInput = event.target.closest("[data-competition-adjustment-input]");
+    if (adjustmentInput) {
+      updateCompetitionAdjustmentValue(adjustmentInput);
+      return;
+    }
+
+    const rulePercentInput = event.target.closest("[data-competition-rule-percent-input]");
+    if (rulePercentInput) {
+      updateCompetitionRulePercentValue(rulePercentInput);
+      return;
+    }
+
     const weightClassInput = event.target.closest("[data-weightclass-input]");
     if (weightClassInput) {
       updateWeightClass(weightClassInput);
@@ -298,11 +369,19 @@ function bindEvents() {
   });
 
   elements.totalsEditor.addEventListener("click", (event) => {
-    const displayButton = event.target.closest(
-      "[data-competition-display-option]",
+    const adjustmentStepButton = event.target.closest(
+      "[data-competition-adjustment-step]",
     );
-    if (displayButton) {
-      updateCompetitionDisplayOption(displayButton);
+    if (adjustmentStepButton) {
+      stepCompetitionAdjustmentValue(adjustmentStepButton);
+      return;
+    }
+
+    const rulePercentStepButton = event.target.closest(
+      "[data-competition-rule-percent-step]",
+    );
+    if (rulePercentStepButton) {
+      stepCompetitionRulePercentValue(rulePercentStepButton);
       return;
     }
 
@@ -328,7 +407,7 @@ function bindEvents() {
     qualificationData = normalizeQualificationData(
       deepClone(DEFAULT_QUALIFICATION_DATA),
     );
-    saveQualificationData(qualificationData);
+    persistQualificationData();
     renderTotalsEditor();
     renderCompetition();
     renderChecker();
@@ -341,11 +420,38 @@ function bindEvents() {
   elements.addCompetitionForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (event.submitter?.value === "cancel") {
-      elements.addCompetitionDialog.close();
+      confirmCloseAddCompetitionDialog();
       return;
     }
     createCompetitionFromDialog();
   });
+
+  elements.addCompetitionDialog.addEventListener("cancel", (event) => {
+    if (hasUnsavedCompetitionChanges()) {
+      event.preventDefault();
+      confirmCloseAddCompetitionDialog();
+    } else {
+      resetAddCompetitionDraftState();
+    }
+  });
+
+  elements.addCompetitionDialog.addEventListener("close", () => {
+    if (!addCompetitionState.isSaving) {
+      resetAddCompetitionDraftState();
+    }
+  });
+
+  elements.addCompetitionDialog.addEventListener("input", markAddCompetitionDirty, true);
+  elements.addCompetitionDialog.addEventListener("change", markAddCompetitionDirty, true);
+  elements.addCompetitionDialog.addEventListener(
+    "click",
+    (event) => {
+      if (event.target.closest("[data-choice], [data-competition-adjustment-step], [data-competition-rule-percent-step], [data-add-weightclass], [data-delete-weightclass]")) {
+        markAddCompetitionDirty();
+      }
+    },
+    true,
+  );
 
   elements.newGroupName.addEventListener("input", () => {
     if (!elements.newGroupShortLabel.value.trim()) {
@@ -379,6 +485,12 @@ function bindEvents() {
   );
 
   elements.addCompetitionDialog.addEventListener("input", (event) => {
+    const adjustmentInput = event.target.closest("[data-competition-adjustment-input]");
+    if (adjustmentInput) return;
+
+    const rulePercentInput = event.target.closest("[data-competition-rule-percent-input]");
+    if (rulePercentInput) return;
+
     const totalInput = event.target.closest("[data-total-input]");
     if (totalInput) {
       updateOriginalTotal(totalInput);
@@ -392,6 +504,18 @@ function bindEvents() {
   });
 
   elements.addCompetitionDialog.addEventListener("change", (event) => {
+    const adjustmentInput = event.target.closest("[data-competition-adjustment-input]");
+    if (adjustmentInput) {
+      updateCompetitionAdjustmentValue(adjustmentInput);
+      return;
+    }
+
+    const rulePercentInput = event.target.closest("[data-competition-rule-percent-input]");
+    if (rulePercentInput) {
+      updateCompetitionRulePercentValue(rulePercentInput);
+      return;
+    }
+
     const weightClassInput = event.target.closest("[data-weightclass-input]");
     if (weightClassInput) {
       updateWeightClass(weightClassInput);
@@ -413,11 +537,19 @@ function bindEvents() {
   });
 
   elements.addCompetitionDialog.addEventListener("click", (event) => {
-    const displayButton = event.target.closest(
-      "[data-competition-display-option]",
+    const adjustmentStepButton = event.target.closest(
+      "[data-competition-adjustment-step]",
     );
-    if (displayButton) {
-      updateCompetitionDisplayOption(displayButton);
+    if (adjustmentStepButton) {
+      stepCompetitionAdjustmentValue(adjustmentStepButton);
+      return;
+    }
+
+    const rulePercentStepButton = event.target.closest(
+      "[data-competition-rule-percent-step]",
+    );
+    if (rulePercentStepButton) {
+      stepCompetitionRulePercentValue(rulePercentStepButton);
       return;
     }
 
@@ -485,22 +617,11 @@ function bindEvents() {
   elements.resetSettings?.addEventListener("click", () => {
     settings = { ...DEFAULT_SETTINGS };
     saveSettings(settings);
-    elements.percentA.value = settings.percentA;
-    elements.percentB.value = settings.percentB;
-    elements.threePercentValue.value = settings.threePercentValue;
     renderActiveSettings();
     renderCompetition();
     renderChecker();
   });
 
-  elements.resetThreePercent?.addEventListener("click", () => {
-    settings.threePercentValue = DEFAULT_SETTINGS.threePercentValue;
-    saveSettings(settings);
-    elements.threePercentValue.value = settings.threePercentValue;
-    renderActiveSettings();
-    renderCompetition();
-    renderChecker();
-  });
 }
 
 
@@ -522,9 +643,6 @@ function handleOpenSettings() {
 }
 
 function openSettingsDialog() {
-  elements.percentA.value = settings.percentA;
-  elements.percentB.value = settings.percentB;
-  elements.threePercentValue.value = settings.threePercentValue;
   setSettingsTab(activeSettingsTab);
   renderTotalsEditor();
   elements.settingsDialog.showModal();
@@ -669,19 +787,19 @@ async function loadSystemFromCloud() {
     const remote = snapshot.data();
     firebaseState.applyingRemote = true;
 
-    if (Array.isArray(remote.qualificationData)) {
-      qualificationData = normalizeQualificationData(remote.qualificationData);
-      localStorage.setItem(
-        "qualificationOriginalTotals",
-        JSON.stringify(qualificationData),
-      );
-    }
-
     if (remote.settings && typeof remote.settings === "object") {
       settings = normalizeSettings(remote.settings);
       localStorage.setItem(
         "qualificationPercentageSettings",
         JSON.stringify(settings),
+      );
+    }
+
+    if (Array.isArray(remote.qualificationData)) {
+      qualificationData = normalizeQualificationData(remote.qualificationData);
+      localStorage.setItem(
+        "qualificationOriginalTotals",
+        JSON.stringify(qualificationData),
       );
     }
 
@@ -710,12 +828,8 @@ async function loadSystemFromCloud() {
 
 function normalizeSettings(value) {
   return {
-    percentA: cleanPercentage(value.percentA, DEFAULT_SETTINGS.percentA),
-    percentB: cleanPercentage(value.percentB, DEFAULT_SETTINGS.percentB),
-    threePercentValue: cleanPercentage(
-      value.threePercentValue,
-      DEFAULT_SETTINGS.threePercentValue,
-    ),
+    percentA: cleanPercentage(value?.percentA, DEFAULT_SETTINGS.percentA),
+    percentB: cleanPercentage(value?.percentB, DEFAULT_SETTINGS.percentB),
   };
 }
 
@@ -767,10 +881,6 @@ function loadSettings() {
     const base = {
       percentA: cleanPercentage(parsed.percentA, DEFAULT_SETTINGS.percentA),
       percentB: cleanPercentage(parsed.percentB, DEFAULT_SETTINGS.percentB),
-      threePercentValue: cleanPercentage(
-        parsed.threePercentValue,
-        DEFAULT_SETTINGS.threePercentValue,
-      ),
     };
     return base;
   } catch {
@@ -833,6 +943,10 @@ function normalizeQualificationData(data) {
             legacyDisplayOptionsFromReductionFlag(competition),
         ),
       };
+      normalized.adjustmentPercent = getCompetitionAdjustmentPercent(normalized);
+      normalized.rulePercent = Object.prototype.hasOwnProperty.call(normalized, "rulePercent")
+        ? getCompetitionRulePercent(normalized)
+        : DEFAULT_COMPETITION_RULE_PERCENT;
       normalized.men = normalizePlusWeightClasses(
         normalizeRows(
           Array.isArray(normalized.men) ? normalized.men : [],
@@ -990,29 +1104,18 @@ function deepClone(value) {
 }
 
 function setSettingsTab(tab) {
-  activeSettingsTab = ["totals", "percentages", "threePercent"].includes(tab)
-    ? tab
-    : "totals";
+  activeSettingsTab = "totals";
   elements.settingsTabs.forEach((button) => {
     button.classList.toggle(
       "active",
       button.dataset.settingsTab === activeSettingsTab,
     );
   });
-  elements.percentageSettingsPanel.classList.toggle(
-    "is-hidden",
-    activeSettingsTab !== "percentages",
-  );
-  elements.threePercentSettingsPanel.classList.toggle(
-    "is-hidden",
-    activeSettingsTab !== "threePercent",
-  );
-  elements.totalsSettingsPanel.classList.toggle(
-    "is-hidden",
-    activeSettingsTab !== "totals",
-  );
-  if (activeSettingsTab === "totals") renderTotalsEditor();
+  elements.totalsSettingsPanel.classList.remove("is-hidden");
+  elements.settingsTotalsAction?.classList.remove("is-hidden");
+  renderTotalsEditor();
 }
+
 
 function renderTotalsEditor() {
   if (
@@ -1484,7 +1587,7 @@ function reorderCompetitionGroup(sourceKey, targetKey) {
   });
 
   qualificationData = normalizeQualificationData(qualificationData);
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTabs();
   renderTotalsEditor();
   renderChecker();
@@ -1514,7 +1617,7 @@ function reorderCompetitionWithinGroup(sourceSlug, targetSlug) {
   });
 
   qualificationData = normalizeQualificationData(qualificationData);
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTabs();
   renderTotalsEditor();
   renderChecker();
@@ -1814,7 +1917,7 @@ function addWeightClassRow(control) {
     );
   });
 
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
@@ -1865,7 +1968,7 @@ function deleteWeightClassRow(control) {
     );
     return ageDiff || titleDiff || weightClassSort(a, b);
   });
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
@@ -1884,7 +1987,7 @@ function updateOriginalTotal(input) {
   const value = Number(input.value);
   if (!Number.isFinite(value) || value < 0 || input.value === "") return;
   row.original = Math.round(value);
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderCompetition();
   renderChecker();
 }
@@ -1916,7 +2019,7 @@ function updateWeightClass(input) {
     );
     return ageDiff || titleDiff || weightClassSort(a, b);
   });
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
@@ -1994,7 +2097,7 @@ function updateMastersAgeGroupField(input) {
   });
   const newKey = getAgeGroupKey(matchingRows[0]);
   activeTotalsMastersAgeGroupKey[competition.slug] = newKey;
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
@@ -2028,7 +2131,7 @@ function updateAgeGroupField(input) {
     }
   }
 
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderCompetition();
   renderChecker();
 }
@@ -2039,11 +2142,22 @@ function cleanPercentage(value, fallback) {
   return Math.min(100, Math.max(0, number));
 }
 
+function cleanAdjustmentPercent(value, fallback = 0) {
+  const cleaned = String(value ?? "")
+    .replace("%", "")
+    .replace(",", ".")
+    .replace(/\s+/g, "")
+    .trim();
+  const number = Number(cleaned);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(-100, Math.min(100, Math.round(number * 10) / 10));
+}
+
 function legacyDisplayOptionsFromReductionFlag(competition) {
   if (competition && competition.useReductions === false) {
-    return { original: true, percentA: false, percentB: false };
+    return { active: "original" };
   }
-  return { original: true, percentA: true, percentB: true };
+  return { active: "original" };
 }
 
 function getValidatedCompetitionDisplayOptions(value) {
@@ -2055,8 +2169,6 @@ function getValidatedCompetitionDisplayOptions(value) {
 
   if (value && typeof value === "object") {
     if (allowed.includes(value.active)) return { active: value.active };
-
-    // Migration from earlier versions where several options could be checked.
     if (value.original) return { active: "original" };
     if (value.percentA) return { active: "percentA" };
     if (value.percentB) return { active: "percentB" };
@@ -2065,84 +2177,202 @@ function getValidatedCompetitionDisplayOptions(value) {
   return { active: "original" };
 }
 
-function getCompetitionDisplayOptions(competitionOrItem) {
-  const source =
+function getLegacyAdjustmentFromDisplayOptions(competitionOrItem) {
+  const options = getValidatedCompetitionDisplayOptions(
     competitionOrItem?.displayOptions ||
-    competitionOrItem?.competitionDisplayOptions ||
-    legacyDisplayOptionsFromReductionFlag(competitionOrItem || {});
-  return getValidatedCompetitionDisplayOptions(source);
+      competitionOrItem?.competitionDisplayOptions ||
+      legacyDisplayOptionsFromReductionFlag(competitionOrItem || {}),
+  );
+  let currentSettings = DEFAULT_SETTINGS;
+  try {
+    if (settings) currentSettings = settings;
+  } catch {
+    currentSettings = DEFAULT_SETTINGS;
+  }
+  if (options.active === "percentA")
+    return -cleanPercentage(currentSettings.percentA, DEFAULT_SETTINGS.percentA);
+  if (options.active === "percentB")
+    return -cleanPercentage(currentSettings.percentB, DEFAULT_SETTINGS.percentB);
+  return 0;
+}
+
+function getCompetitionAdjustmentPercent(competitionOrItem) {
+  if (
+    competitionOrItem &&
+    Object.prototype.hasOwnProperty.call(competitionOrItem, "adjustmentPercent")
+  ) {
+    return cleanAdjustmentPercent(competitionOrItem.adjustmentPercent, 0);
+  }
+  return getLegacyAdjustmentFromDisplayOptions(competitionOrItem || {});
+}
+
+function cleanRulePercent(value) {
+  const cleaned = String(value ?? "")
+    .replace("%", "")
+    .replace(",", ".")
+    .replace(/\s+/g, "")
+    .trim();
+  const number = Number(cleaned);
+  if (!Number.isFinite(number)) return NaN;
+  return Math.min(100, Math.max(0, Math.round(number * 10) / 10));
+}
+
+function getCompetitionRulePercent(competitionOrItem) {
+  const cleaned = cleanRulePercent(competitionOrItem?.rulePercent);
+  return Number.isFinite(cleaned) ? cleaned : 0;
+}
+
+function renderCompetitionPercentStepper({
+  label,
+  value,
+  inputDataAttribute,
+  stepDataAttribute,
+  stepUpLabel,
+  stepDownLabel,
+  slug,
+  signed = false,
+}) {
+  const formattedValue = signed ? formatSignedPercent(value) : formatPercent(value);
+  return `
+    <label class="competition-adjustment-label">
+      <span>${escapeHtml(label)}</span>
+      <span class="competition-adjustment-stepper">
+        <input
+          class="competition-adjustment-input"
+          type="text"
+          inputmode="decimal"
+          value="${escapeAttribute(formattedValue)}"
+          ${inputDataAttribute}
+          data-competition-slug="${escapeAttribute(slug)}"
+          aria-label="${escapeAttribute(label)} í prosent"
+        />
+        <span class="competition-adjustment-buttons">
+          <button
+            class="competition-adjustment-step"
+            type="button"
+            ${stepDataAttribute}="0.1"
+            data-competition-slug="${escapeAttribute(slug)}"
+            aria-label="${escapeAttribute(stepUpLabel)}"
+          >▲</button>
+          <button
+            class="competition-adjustment-step"
+            type="button"
+            ${stepDataAttribute}="-0.1"
+            data-competition-slug="${escapeAttribute(slug)}"
+            aria-label="${escapeAttribute(stepDownLabel)}"
+          >▼</button>
+        </span>
+      </span>
+    </label>
+  `;
 }
 
 function renderCompetitionDisplayControls(competition) {
-  const options = getCompetitionDisplayOptions(competition);
-  const choices = [
-    { key: "original", label: "Krav" },
-    { key: "percentA", label: "Fyrsta lækking" },
-    { key: "percentB", label: "Onnur lækking" },
-  ];
-
+  const adjustmentPercent = getCompetitionAdjustmentPercent(competition);
+  const rulePercent = getCompetitionRulePercent(competition);
   return `
-    <fieldset class="competition-display-options" aria-label="Vel krav fyri hesa kapping">
+    <fieldset class="competition-display-options competition-adjustment-options" aria-label="Krav og vektregla fyri hesa kapping">
       <legend>Krav í hesi kapping</legend>
-      ${choices
-        .map(
-          (choice) => `
-        <button
-          class="choice-button competition-standard-button${options.active === choice.key ? " active" : ""}"
-          type="button"
-          data-competition-display-option
-          data-display-key="${escapeAttribute(choice.key)}"
-          data-competition-slug="${escapeAttribute(competition.slug)}"
-          aria-pressed="${options.active === choice.key ? "true" : "false"}"
-        >
-          ${escapeHtml(choice.label)}
-        </button>
-      `,
-        )
-        .join("")}
+      <div class="competition-adjustment-row">
+        ${renderCompetitionPercentStepper({
+          label: "Ávirkan á krøv",
+          value: adjustmentPercent,
+          inputDataAttribute: "data-competition-adjustment-input",
+          stepDataAttribute: "data-competition-adjustment-step",
+          stepUpLabel: "Hækka ávirkan á krøv",
+          stepDownLabel: "Lækka ávirkan á krøv",
+          slug: competition.slug,
+          signed: true,
+        })}
+        ${renderCompetitionPercentStepper({
+          label: "% regla",
+          value: rulePercent,
+          inputDataAttribute: "data-competition-rule-percent-input",
+          stepDataAttribute: "data-competition-rule-percent-step",
+          stepUpLabel: "Hækka prosentreglu",
+          stepDownLabel: "Lækka prosentreglu",
+          slug: competition.slug,
+        })}
+      </div>
     </fieldset>
   `;
 }
 
 function getVisibleRequirementVariantsForCompetition(competitionOrItem) {
-  const options = getCompetitionDisplayOptions(competitionOrItem);
-  const variants = {
-    original: {
-      key: "original",
-      label: "Krav",
-      className: "success",
-      total: (row) => row.original,
+  const adjustmentPercent = getCompetitionAdjustmentPercent(competitionOrItem);
+  return [
+    {
+      key: "adjusted",
+      label: formatSignedPercent(adjustmentPercent),
+      className: adjustmentPercent < 0 ? "warning" : "success",
+      total: (row) => adjustedTotal(row.original, adjustmentPercent),
     },
-    percentA: {
-      key: "percentA",
-      label: `-${formatPercent(settings.percentA)}`,
-      className: "warning",
-      total: (row) => adjustedTotal(row.original, settings.percentA),
-    },
-    percentB: {
-      key: "percentB",
-      label: `-${formatPercent(settings.percentB)}`,
-      className: "warning",
-      total: (row) => adjustedTotal(row.original, settings.percentB),
-    },
-  };
-
-  return [variants[options.active] || variants.original];
+  ];
 }
 
-function updateCompetitionDisplayOption(control) {
+function updateCompetitionAdjustmentValue(input) {
   const competition = qualificationData.find(
-    (item) => item.slug === control.dataset.competitionSlug,
+    (item) => item.slug === input.dataset.competitionSlug,
   );
   if (!competition) return;
 
-  competition.displayOptions = getValidatedCompetitionDisplayOptions(
-    control.dataset.displayKey,
+  competition.adjustmentPercent = cleanAdjustmentPercent(
+    input.value,
+    getCompetitionAdjustmentPercent(competition),
   );
-  saveQualificationData(qualificationData);
-  renderTotalsEditor();
+  input.value = formatSignedPercent(competition.adjustmentPercent);
+  persistQualificationData();
+  renderCompetition();
+  renderChecker();
+}
+
+function stepCompetitionAdjustmentValue(button) {
+  const competition = qualificationData.find(
+    (item) => item.slug === button.dataset.competitionSlug,
+  );
+  if (!competition) return;
+
+  const step = Number(button.dataset.competitionAdjustmentStep);
+  const current = getCompetitionAdjustmentPercent(competition);
+  competition.adjustmentPercent = cleanAdjustmentPercent(
+    current + (Number.isFinite(step) ? step : 0),
+    current,
+  );
+  persistQualificationData();
   renderEditCompetitionTotalsEditor();
-  renderActiveSettings();
+  renderCompetition();
+  renderChecker();
+}
+
+function updateCompetitionRulePercentValue(input) {
+  const competition = qualificationData.find(
+    (item) => item.slug === input.dataset.competitionSlug,
+  );
+  if (!competition) return;
+
+  const cleanedRulePercent = cleanRulePercent(input.value);
+  if (Number.isFinite(cleanedRulePercent)) {
+    competition.rulePercent = cleanedRulePercent;
+  }
+  input.value = formatPercent(getCompetitionRulePercent(competition));
+  persistQualificationData();
+  renderCompetition();
+  renderChecker();
+}
+
+function stepCompetitionRulePercentValue(button) {
+  const competition = qualificationData.find(
+    (item) => item.slug === button.dataset.competitionSlug,
+  );
+  if (!competition) return;
+
+  const step = Number(button.dataset.competitionRulePercentStep);
+  const current = getCompetitionRulePercent(competition);
+  competition.rulePercent = cleanRulePercent(
+    current + (Number.isFinite(step) ? step : 0),
+  );
+  persistQualificationData();
+  renderEditCompetitionTotalsEditor();
   renderCompetition();
   renderChecker();
 }
@@ -2402,7 +2632,7 @@ function renderChecker() {
       competitionClasses,
       bodyweight,
       useThreePercentRule,
-      settings.threePercentValue,
+      getCompetitionRulePercent(competition),
     );
     const eligibleClassSet = new Set(eligibleWeightClasses);
     if (!eligibleClassSet.size) return [];
@@ -2860,7 +3090,19 @@ function openAddCompetitionDialog(
   groupKey = "",
   competitionSlug = "",
 ) {
-  addCompetitionState = { mode, groupKey, competitionSlug };
+  const originalQualificationData =
+    mode === "edit-competition" ? deepClone(qualificationData) : null;
+  addCompetitionState = {
+    mode,
+    groupKey,
+    competitionSlug,
+    originalQualificationData,
+    originalSerialized: originalQualificationData
+      ? JSON.stringify(originalQualificationData)
+      : "",
+    isSaving: false,
+    formDirty: false,
+  };
   const competitionToEdit =
     mode === "edit-competition"
       ? qualificationData.find(
@@ -3096,7 +3338,7 @@ function syncEditModalRequirementLevels() {
   );
 
   activeTotalsRequirementTitle = levels.length > 1 ? levels[0] : "";
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
   renderChecker();
@@ -3375,6 +3617,32 @@ function createCompetitionFromDialog() {
   const levels = getSelectedRequirementLevels();
   const mastersAgeGroups =
     competitionType === "masters" ? getSelectedMastersAgeGroups() : [];
+  const adjustmentInput = existingCompetition
+    ? [
+        ...elements.addCompetitionDialog.querySelectorAll(
+          "[data-competition-adjustment-input]",
+        ),
+      ].find((input) => input.dataset.competitionSlug === existingCompetition.slug)
+    : null;
+  const adjustmentPercent = existingCompetition
+    ? cleanAdjustmentPercent(
+        adjustmentInput?.value,
+        getCompetitionAdjustmentPercent(existingCompetition),
+      )
+    : 0;
+  const rulePercentInput = existingCompetition
+    ? [
+        ...elements.addCompetitionDialog.querySelectorAll(
+          "[data-competition-rule-percent-input]",
+        ),
+      ].find((input) => input.dataset.competitionSlug === existingCompetition.slug)
+    : null;
+  const editedRulePercent = cleanRulePercent(rulePercentInput?.value);
+  const rulePercent = existingCompetition
+    ? Number.isFinite(editedRulePercent)
+      ? editedRulePercent
+      : getCompetitionRulePercent(existingCompetition)
+    : DEFAULT_COMPETITION_RULE_PERCENT;
 
   const reference =
     existingCompetition ||
@@ -3418,6 +3686,8 @@ function createCompetitionFromDialog() {
       competitionYear,
       type: competitionType,
       ageRule,
+      adjustmentPercent,
+      rulePercent,
       men: rebuildRowsForEditSave(
         existingCompetition,
         "men",
@@ -3463,6 +3733,8 @@ function createCompetitionFromDialog() {
       order: orderBase,
       type: competitionType,
       ageRule,
+      adjustmentPercent: 0,
+      rulePercent,
       displayOptions: { active: "original" },
       men:
         competitionType === "masters"
@@ -3481,13 +3753,15 @@ function createCompetitionFromDialog() {
     activeTotalsRequirementTitle = levels.length > 1 ? levels[0] : "";
   }
 
-  saveQualificationData(qualificationData);
+  addCompetitionState.isSaving = true;
+  persistQualificationData(true);
   renderTabs();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
   renderCompetition();
   renderChecker();
   elements.addCompetitionDialog.close();
+  resetAddCompetitionDraftState();
 }
 
 function deleteActiveCompetitionFromModal() {
@@ -3502,7 +3776,10 @@ function deleteActiveCompetitionFromModal() {
 
   const wasDeleted = deleteCompetition(slug);
   if (wasDeleted) {
+    addCompetitionState.isSaving = true;
+    persistQualificationData(true);
     elements.addCompetitionDialog.close();
+    resetAddCompetitionDraftState();
   }
 }
 
@@ -3531,7 +3808,7 @@ function deleteCompetition(slug) {
   delete activeMainMastersAgeGroupFilters[slug];
   delete activeTotalsMastersAgeGroupKey[slug];
 
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTabs();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
@@ -3580,7 +3857,7 @@ function saveGroupFromDialog() {
     }),
   );
 
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTabs();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
@@ -3628,7 +3905,7 @@ function deleteCompetitionGroup(groupKey) {
   });
   if (activeResultsGroup === groupKey) activeResultsGroup = "all";
 
-  saveQualificationData(qualificationData);
+  persistQualificationData();
   renderTabs();
   renderTotalsEditor();
   renderEditCompetitionTotalsEditor();
@@ -3803,7 +4080,7 @@ function getEligibleWeightClasses(
   classes,
   bodyweight,
   useThreePercentRule,
-  rulePercentage = DEFAULT_SETTINGS.threePercentValue,
+  rulePercentage,
 ) {
   if (!Number.isFinite(bodyweight) || bodyweight <= 0) return [];
 
@@ -3817,10 +4094,10 @@ function getEligibleWeightClasses(
     .filter((item) => Number.isFinite(item.limit))
     .sort((a, b) => a.limit - b.limit);
 
-  const multiplier = useThreePercentRule
-    ? 1 +
-      cleanPercentage(rulePercentage, DEFAULT_SETTINGS.threePercentValue) / 100
-    : 1;
+  const rulePercent = Number.isFinite(Number(rulePercentage))
+    ? Number(rulePercentage)
+    : 0;
+  const multiplier = useThreePercentRule ? 1 + rulePercent / 100 : 1;
   const lowestMatch = regularClasses.find(
     (item) => bodyweight <= item.limit * multiplier,
   );
@@ -3893,7 +4170,7 @@ function getBestStatus(item) {
 }
 
 function adjustedTotal(original, percentage) {
-  return Math.floor(original * (1 - percentage / 100));
+  return Math.floor(Number(original) * (1 + Number(percentage) / 100));
 }
 
 function formatTotal(value) {
@@ -3906,6 +4183,17 @@ function formatPercent(value) {
   const number = Number(value);
   if (Number.isInteger(number)) return `${number}%`;
   return `${number.toFixed(1)}%`;
+}
+
+function formatSignedPercent(value) {
+  const number = cleanAdjustmentPercent(value, 0);
+  const absolute = Math.abs(number);
+  const formatted = Number.isInteger(absolute)
+    ? String(absolute)
+    : absolute.toFixed(1);
+  if (number > 0) return `+${formatted} %`;
+  if (number < 0) return `-${formatted} %`;
+  return "0 %";
 }
 
 function weightClassSort(a, b) {

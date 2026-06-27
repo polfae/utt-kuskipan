@@ -79,3 +79,18 @@ service cloud.firestore {
 ## Firestore as source of truth
 
 This version protects the saved qualification data in Firestore. The built-in data files are only fallback/startup data and are not allowed to overwrite Firestore before the database has finished loading. Cloud saving is blocked until Firestore has been checked, so future website code updates should not reset the qualification totals stored in `qualificationSystems / faroe`.
+
+Update: moved the "+ Nýggjur bólkur" action to the same row as the settings navigation tabs, aligned to the far right. Firestore remains the source of truth for qualification data.
+
+
+## Update
+
+- Removed the extra “Úttøkukrøv / Broyt vektflokkar og krøv fyri hesa kappingina.” intro text from the competition edit modal.
+
+
+Update: competition-specific percentage adjustment
+- Removed the global “Lækkingar” settings tab from the UI.
+- Each competition now stores its own adjustmentPercent value in Firestore with the rest of the competition data.
+- Public tables and the qualification checker calculate shown requirements from the base value using floor(base × (1 + adjustmentPercent / 100)).
+- Positive values increase requirements and display with a plus sign, e.g. +5 %. Negative values reduce requirements, e.g. -5 %.
+- Firestore remains the source of truth; hardcoded/default data is only fallback if no database document is available.

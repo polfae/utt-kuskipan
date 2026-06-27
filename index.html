@@ -184,7 +184,7 @@
         <div class="modal-header">
           <div>
             <p class="eyebrow">Stillingar</p>
-            <h2>Stýr úttøkukrøvunum</h2>
+            <h2>Úttøkukrøv</h2>
           </div>
           <div class="modal-header-actions">
             <button
@@ -198,79 +198,18 @@
           </div>
         </div>
 
-        <nav class="settings-tabs" aria-label="Stillingar">
+        <div class="settings-toolbar" id="settingsTotalsAction">
           <button
-            class="settings-tab-button active"
+            class="secondary-button"
+            id="addCompetitionGroup"
             type="button"
-            data-settings-tab="totals"
           >
-            Úttøkukrøv
+            + Nýggjur bólkur
           </button>
-          <button
-            class="settings-tab-button"
-            type="button"
-            data-settings-tab="percentages"
-          >
-            Lækkingar
-          </button>
-          <button
-            class="settings-tab-button"
-            type="button"
-            data-settings-tab="threePercent"
-          >
-            Prosent Regla
-          </button>
-        </nav>
+        </div>
 
-        <section class="settings-panel is-hidden" id="percentageSettingsPanel">
-          <div class="settings-grid">
-            <label>
-              Fyrsta lækking (%)
-              <input id="percentA" type="number" min="0" max="100" step="0.1" />
-            </label>
-            <label>
-              Onnur lækking (%)
-              <input id="percentB" type="number" min="0" max="100" step="0.1" />
-            </label>
-          </div>
-          <div class="panel-actions split-actions"></div>
-        </section>
-
-        <section
-          class="settings-panel is-hidden"
-          id="threePercentSettingsPanel"
-        >
-          <div class="settings-grid">
-            <label>
-              Prosent Regla (%)
-              <input
-                id="threePercentValue"
-                type="number"
-                min="0"
-                max="20"
-                step="0.1"
-              />
-            </label>
-          </div>
-          <p class="settings-help-text">
-            Hetta virðið ásetur, hvussu nógv ein lyftari kann vera omanfyri ein
-            vektflokk, tá prosent reglan er virkin
-          </p>
-          <div class="panel-actions split-actions"></div>
-        </section>
 
         <section class="settings-panel" id="totalsSettingsPanel">
-          <div class="totals-toolbar compact-toolbar">
-            <div class="toolbar-actions">
-              <button
-                class="secondary-button"
-                id="addCompetitionGroup"
-                type="button"
-              >
-                + Nýggjur bólkur
-              </button>
-            </div>
-          </div>
           <div class="totals-editor" id="totalsEditor"></div>
         </section>
 
@@ -468,12 +407,6 @@
           class="modal-totals-editor is-hidden"
           id="editCompetitionTotalsPanel"
         >
-          <div class="modal-section-heading">
-            <div>
-              <span>Úttøkukrøv</span>
-              <small>Broyt vektflokkar og krøv fyri hesa kappingina.</small>
-            </div>
-          </div>
           <div
             class="totals-editor modal-totals-editor-body"
             id="editCompetitionTotalsEditor"
