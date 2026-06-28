@@ -90,7 +90,6 @@ const DEFAULT_QUALIFICATION_DATA = normalizeQualificationData(
 let qualificationData = loadQualificationData();
 let settings = loadSettings();
 let activeCompetitionSlug = qualificationData[0]?.slug || "";
-let activeSettingsTab = "totals";
 let activeRequirementFilters = {};
 let activeMainMastersAgeGroupFilters = {};
 let activeResultsGroup = "all";
@@ -115,7 +114,6 @@ let firebaseState = {
   saveTimer: null,
   lastSaveError: null,
 };
-
 
 function isEditingCompetitionDraft() {
   return (
@@ -193,6 +191,7 @@ const elements = {
   tabs: document.getElementById("competitionTabs"),
   panel: document.getElementById("competitionPanel"),
   activeSettings: document.getElementById("activeSettings"),
+  checkerForm: document.getElementById("checkerForm"),
   gender: document.getElementById("athleteGender"),
   genderButtons: document.querySelectorAll("[data-gender]"),
   birthYear: document.getElementById("athleteBirthYear"),
@@ -206,25 +205,14 @@ const elements = {
   openLogin: document.getElementById("openLogin"),
   mainLogoutButton: document.getElementById("mainLogoutButton"),
   closeAuthDialog: document.getElementById("closeAuthDialog"),
-  cancelAuthDialog: document.getElementById("cancelAuthDialog"),
   settingsForm: document.getElementById("settingsForm"),
-  threePercentValue: document.getElementById("threePercentValue"),
-  resetThreePercent: document.getElementById("resetThreePercent"),
-  resetSettings: document.getElementById("resetSettings"),
-  settingsTabs: document.querySelectorAll("[data-settings-tab]"),
   settingsTotalsAction: document.getElementById("settingsTotalsAction"),
-  threePercentSettingsPanel: document.getElementById(
-    "threePercentSettingsPanel",
-  ),
   totalsSettingsPanel: document.getElementById("totalsSettingsPanel"),
-  totalsSearch: document.getElementById("totalsSearch"),
   totalsEditor: document.getElementById("totalsEditor"),
-  resetTotals: document.getElementById("resetTotals"),
   addCompetitionGroup: document.getElementById("addCompetitionGroup"),
   addCompetitionDialog: document.getElementById("addCompetitionDialog"),
   addCompetitionForm: document.getElementById("addCompetitionForm"),
   addCompetitionTitle: document.getElementById("addCompetitionTitle"),
-  addCompetitionNote: document.getElementById("addCompetitionNote"),
   newGroupFields: document.getElementById("newGroupFields"),
   newGroupName: document.getElementById("newGroupName"),
   newGroupShortLabel: document.getElementById("newGroupShortLabel"),
@@ -253,7 +241,6 @@ const elements = {
   authPassword: document.getElementById("authPassword"),
   authError: document.getElementById("authError"),
   authSubmitButton: document.getElementById("authSubmitButton"),
-  logoutButton: document.getElementById("logoutButton"),
 };
 
 init();
@@ -267,7 +254,6 @@ function init() {
   updateAuthControls();
   initFirebaseIntegration();
 }
-
 
 function updateGenderSegment() {
   const activeValue = elements.gender?.value || "men";
@@ -290,9 +276,14 @@ function bindEvents() {
     });
   });
   updateGenderSegment();
-  elements.birthYear.addEventListener("input", renderChecker);
-  elements.total.addEventListener("input", renderChecker);
-  elements.bodyweight.addEventListener("input", renderChecker);
+  [elements.birthYear, elements.total, elements.bodyweight].forEach((input) => {
+    input?.addEventListener("input", () => {
+      updateAthleteNumberInputState(input);
+      renderChecker();
+    });
+    updateAthleteNumberInputState(input);
+  });
+  bindAthleteNumberSteppers();
   elements.threePercentRule.addEventListener("change", () => {
     updateThreePercentRuleButton();
     renderChecker();
@@ -304,8 +295,6 @@ function bindEvents() {
 
   elements.authForm?.addEventListener("submit", handleAuthSubmit);
   elements.closeAuthDialog?.addEventListener("click", closeAuthDialog);
-  elements.cancelAuthDialog?.addEventListener("click", closeAuthDialog);
-  elements.logoutButton?.addEventListener("click", handleLogout);
   elements.mainLogoutButton?.addEventListener("click", handleLogout);
 
   elements.settingsForm.addEventListener("submit", () => {
@@ -314,14 +303,6 @@ function bindEvents() {
     renderCompetition();
     renderChecker();
   });
-
-  elements.settingsTabs.forEach((button) => {
-    button.addEventListener("click", () =>
-      setSettingsTab(button.dataset.settingsTab),
-    );
-  });
-
-  elements.totalsSearch?.addEventListener("input", renderTotalsEditor);
 
   elements.totalsEditor.addEventListener("dragstart", handleSettingsDragStart);
   elements.totalsEditor.addEventListener("dragover", handleSettingsDragOver);
@@ -397,20 +378,6 @@ function bindEvents() {
     if (deleteWeightclassButton) {
       deleteWeightClassRow(deleteWeightclassButton);
     }
-  });
-
-  elements.resetTotals?.addEventListener("click", () => {
-    const confirmed = window.confirm(
-      "Vilt tú endurstilla øll úttøkukrøv til standardvirði?",
-    );
-    if (!confirmed) return;
-    qualificationData = normalizeQualificationData(
-      deepClone(DEFAULT_QUALIFICATION_DATA),
-    );
-    persistQualificationData();
-    renderTotalsEditor();
-    renderCompetition();
-    renderChecker();
   });
 
   elements.addCompetitionGroup.addEventListener("click", () =>
@@ -614,16 +581,117 @@ function bindEvents() {
     }
   });
 
-  elements.resetSettings?.addEventListener("click", () => {
-    settings = { ...DEFAULT_SETTINGS };
-    saveSettings(settings);
-    renderActiveSettings();
-    renderCompetition();
-    renderChecker();
-  });
-
 }
 
+function bindAthleteNumberSteppers() {
+  document.querySelectorAll(".athlete-number-step").forEach((button) => {
+    button.addEventListener("pointerdown", handleAthleteNumberStepPointerDown);
+    button.addEventListener("keydown", handleAthleteNumberStepKeyDown);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  });
+}
+
+function handleAthleteNumberStepPointerDown(event) {
+  runAthleteNumberStep(event.currentTarget, event);
+}
+
+function handleAthleteNumberStepKeyDown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  runAthleteNumberStep(event.currentTarget, event);
+}
+
+function runAthleteNumberStep(stepButton, event) {
+  if (!(stepButton instanceof HTMLElement)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const step = parseStepperNumber(stepButton.dataset.athleteNumberStep);
+  const input = stepButton
+    .closest(".athlete-number-stepper")
+    ?.querySelector(".athlete-number-input");
+  if (!input || !Number.isFinite(step) || step === 0) return;
+
+  stepAthleteNumberInput(input, step);
+}
+
+function stepAthleteNumberInput(input, step) {
+  const min = parseNumberAttribute(input, "min");
+  const max = parseNumberAttribute(input, "max");
+  const current = parseInputNumberValue(input.value);
+  const decimalPlaces = getAthleteInputDecimalPlaces(input, step);
+  let nextValue = (Number.isFinite(current) ? current : 0) + step;
+
+  if (Number.isFinite(min)) nextValue = Math.max(min, nextValue);
+  if (Number.isFinite(max)) nextValue = Math.min(max, nextValue);
+
+  input.value = formatStepperNumber(nextValue, decimalPlaces);
+  updateAthleteNumberInputState(input);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function getAthleteInputDecimalPlaces(input, step) {
+  const configuredDecimals = Number(input.dataset.athleteDecimals);
+  if (Number.isInteger(configuredDecimals) && configuredDecimals >= 0) {
+    return configuredDecimals;
+  }
+  return getDecimalPlaces(step);
+}
+
+function updateAthleteNumberInputState(input) {
+  if (!input) return;
+  updateAthleteNumberInputWidth(input);
+  const stepper = input.closest(".athlete-number-stepper");
+  stepper?.classList.toggle("has-value", String(input.value || "").trim() !== "");
+}
+
+function updateAthleteNumberInputWidth(input) {
+  if (!input) return;
+  const rawValue = String(input.value || "").trim();
+  const placeholder = input.getAttribute("placeholder") || "";
+  const visibleLength = rawValue ? rawValue.length : placeholder.length;
+  const cappedLength = Math.min(Math.max(visibleLength, 3), 10);
+  input.style.setProperty("--athlete-input-width", `${cappedLength + 0.6}ch`);
+}
+
+function parseInputNumberValue(value) {
+  if (value == null) return NaN;
+  const normalized = String(value)
+    .trim()
+    .replace(/[−–—]/g, "-")
+    .replace(/,/g, ".")
+    .replace(/kg/gi, "");
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : NaN;
+}
+
+function parseStepperNumber(value) {
+  if (value == null) return NaN;
+  return Number(String(value).replace(",", "."));
+}
+
+function parseNumberAttribute(input, attributeName) {
+  const rawValue = input.getAttribute(attributeName);
+  if (rawValue === null || String(rawValue).trim() === "") return null;
+
+  const value = Number(String(rawValue).replace(",", "."));
+  return Number.isFinite(value) ? value : null;
+}
+
+function getDecimalPlaces(value) {
+  const [, decimals = ""] = String(value).split(".");
+  return decimals.length;
+}
+
+function formatStepperNumber(value, decimalPlaces) {
+  if (!Number.isFinite(value)) return "";
+  const rounded = Number(value.toFixed(Math.max(decimalPlaces, 0)));
+  if (decimalPlaces <= 0) return String(Math.round(rounded));
+  return rounded.toFixed(decimalPlaces).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
 
 function handleOpenSettings() {
   if (!firebaseState.services) {
@@ -643,7 +711,6 @@ function handleOpenSettings() {
 }
 
 function openSettingsDialog() {
-  setSettingsTab(activeSettingsTab);
   renderTotalsEditor();
   elements.settingsDialog.showModal();
 }
@@ -1103,20 +1170,6 @@ function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function setSettingsTab(tab) {
-  activeSettingsTab = "totals";
-  elements.settingsTabs.forEach((button) => {
-    button.classList.toggle(
-      "active",
-      button.dataset.settingsTab === activeSettingsTab,
-    );
-  });
-  elements.totalsSettingsPanel.classList.remove("is-hidden");
-  elements.settingsTotalsAction?.classList.remove("is-hidden");
-  renderTotalsEditor();
-}
-
-
 function renderTotalsEditor() {
   if (
     !qualificationData.some(
@@ -1433,7 +1486,6 @@ function getCompetitionGroups() {
     (a, b) => a.order - b.order || a.label.localeCompare(b.label, "fo"),
   );
 }
-
 
 function handleSettingsDragStart(event) {
   const competitionButton = event.target.closest("[data-drag-competition-slug]");
@@ -2798,12 +2850,6 @@ function renderResultsTabs(groups, activeKey) {
   `;
 }
 
-function getResultsTabTitle(groups, activeKey) {
-  if (activeKey === "all") return "Øll klárað úttøkukrøv";
-  const group = groups.find((item) => item.key === activeKey);
-  return group ? group.label : "Øll klárað úttøkukrøv";
-}
-
 function groupQualifiedRows(rows) {
   const groups = [];
   rows.forEach((item) => {
@@ -3122,13 +3168,6 @@ function openAddCompetitionDialog(
     : existingGroup
       ? `Stovna kapping í ${existingGroup.label}`
       : "Stovna nýggjan bólk og kapping";
-  if (elements.addCompetitionNote) {
-    elements.addCompetitionNote.textContent = isEditMode
-      ? "Broytingarnar verða goymdar í hesi kappingini."
-      : existingGroup
-        ? `Kappingin verður løgd afturat ${existingGroup.label}.`
-        : "Bólkurin og kappingin verða goymd í hesum kagaranum.";
-  }
   elements.createCompetitionButton.textContent = isEditMode
     ? "Goym broytingar"
     : "Stovna kapping";
@@ -3429,25 +3468,6 @@ function getMatchingOriginal(map, row) {
 
   return 0;
 }
-function rebuildRowsForCompetition(
-  existingCompetition,
-  genderKey,
-  competitionType,
-  classes,
-  levels,
-  mastersAgeGroups,
-) {
-  const oldTotals = getTotalsMap(existingCompetition?.[genderKey] || []);
-  const rows =
-    competitionType === "masters"
-      ? buildMastersRows(classes, levels, mastersAgeGroups)
-      : buildRows(classes, levels);
-  return rows.map((row) => ({
-    ...row,
-    original: getMatchingOriginal(oldTotals, row),
-  }));
-}
-
 
 function getMastersGroupKeyFromDefinition(group) {
   return [group?.label || "Masters", group?.min ?? "", group?.max ?? null].join("|");
@@ -3923,31 +3943,6 @@ function suggestShortLabel(value) {
     .slice(0, 4);
 }
 
-function chooseAgeRule() {
-  return { ...AGE_PRESETS.senior };
-}
-
-function promptMastersAgeGroups() {
-  return DEFAULT_MASTERS_AGE_OPTIONS.map((group) => ({ ...group }));
-}
-
-function parseMastersAgeGroup(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  const [labelPart, rangePart] = raw.includes(":")
-    ? raw.split(":")
-    : [raw, raw];
-  const label = labelPart.trim() || "Masters";
-  const range = String(rangePart || "").trim();
-  const plusMatch = range.match(/(\d+)\s*\+/);
-  if (plusMatch) return { label, min: Number(plusMatch[1]), max: null };
-  const rangeMatch = range.match(/(\d+)\s*-\s*(\d+)/);
-  if (rangeMatch)
-    return { label, min: Number(rangeMatch[1]), max: Number(rangeMatch[2]) };
-  const min = parseAgeGroupMin(label, 35);
-  return { label, min, max: parseAgeGroupMax(label, min) };
-}
-
 function uniqueWeightClasses(classes, fallback) {
   const source = Array.isArray(classes) && classes.length ? classes : fallback;
   return [
@@ -4060,20 +4055,12 @@ function formatDisplayWeightClassLabel(value) {
 
 function parseLocaleNumber(value) {
   if (value == null) return NaN;
-  const normalized = String(value).trim().replace(",", ".");
+  const normalized = String(value)
+    .trim()
+    .replace(/\s*kg$/i, "")
+    .replace(",", ".");
   if (!normalized) return NaN;
   return Number(normalized);
-}
-
-function getAvailableWeightClasses(key) {
-  const classes = [
-    ...new Set(
-      qualificationData.flatMap((competition) =>
-        competition[key].map((row) => getWeightClassKey(row)),
-      ),
-    ),
-  ];
-  return classes.sort(weightClassSort);
 }
 
 function getEligibleWeightClasses(
@@ -4141,32 +4128,10 @@ function getWeightClassKey(rowOrValue) {
   );
 }
 
-function formatBodyweight(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  return number.toFixed(1).replace(".", ",");
-}
-
-function summaryTile(value, label) {
-  return `
-    <div class="summary-tile">
-      <strong>${value}</strong>
-      <span>${escapeHtml(label)}</span>
-    </div>
-  `;
-}
-
 function badge(passed, passText, failText) {
   if (passed)
     return `<span class="badge success">Kláraði ${escapeHtml(passText)}</span>`;
   return `<span class="badge neutral">${escapeHtml(failText)}</span>`;
-}
-
-function getBestStatus(item) {
-  if (item.madeOriginal) return { text: "Klárað", className: "success" };
-  if (item.madeFirstAdjusted || item.madeSecondAdjusted)
-    return { text: "Lækkað krav", className: "warning" };
-  return { text: "Ikki enn", className: "neutral" };
 }
 
 function adjustedTotal(original, percentage) {
