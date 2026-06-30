@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Føroyskt Úttøkukrøv</title>
-    <link rel="stylesheet" href="styles.css?v=stepper-clamp-fix" />
+    <link rel="stylesheet" href="styles.css?v=no-stale-default-data" />
   </head>
   <body>
     <header class="site-header">
@@ -202,6 +202,10 @@
       </section>
     </main>
 
+    <footer class="site-footer" aria-label="Høvundur">
+      <p>Ment av Pól Hendrikur Andreasen</p>
+    </footer>
+
     <dialog class="settings-dialog auth-dialog" id="authDialog">
       <form method="dialog" class="settings-modal auth-modal" id="authForm">
         <div class="modal-header">
@@ -280,7 +284,21 @@
           <div class="totals-editor" id="totalsEditor"></div>
         </section>
 
-        <div class="modal-actions">
+        <div class="modal-actions settings-modal-actions">
+          <div class="backup-actions backup-footer-actions">
+            <button class="secondary-button" id="exportBackupButton" type="button">
+              Tak niður trygdaravrit
+            </button>
+            <button class="secondary-button" id="importBackupButton" type="button">
+              Les inn trygdaravrit
+            </button>
+            <input
+              class="visually-hidden"
+              id="importBackupInput"
+              type="file"
+              accept="application/json,.json"
+            />
+          </div>
           <button class="primary-button" value="default" type="submit">
             Goym og lat aftur
           </button>
@@ -347,12 +365,39 @@
         </div>
 
         <div class="choice-section">
-          <div class="choice-heading">Kappingarslag</div>
+          <div class="choice-heading">Slag av úttøkukravi</div>
+          <div
+            class="choice-buttons single-choice"
+            id="qualificationTypeChoices"
+            role="radiogroup"
+            aria-label="Slag av úttøkukravi"
+          >
+            <button
+              type="button"
+              class="choice-button active"
+              data-choice="qualificationType"
+              data-value="total"
+            >
+              Tvídystur
+            </button>
+            <button
+              type="button"
+              class="choice-button"
+              data-choice="qualificationType"
+              data-value="points"
+            >
+              Stig
+            </button>
+          </div>
+        </div>
+
+        <div class="choice-section" id="competitionTypeSection">
+          <div class="choice-heading">Aldursbólkur</div>
           <div
             class="choice-buttons single-choice"
             id="competitionTypeChoices"
             role="radiogroup"
-            aria-label="Kappingarslag"
+            aria-label="Aldursbólkur"
           >
             <button
               type="button"
@@ -413,6 +458,7 @@
           </div>
         </div>
 
+        <div class="total-qualification-fields" id="totalQualificationFields">
         <div class="choice-section is-hidden" id="mastersAgeChoicesPanel">
           <div class="choice-heading">Masters aldursbólkar</div>
           <div class="choice-help">
@@ -467,6 +513,45 @@
             >
               C
             </button>
+          </div>
+        </div>
+
+        </div>
+
+        <div class="point-qualification-fields is-hidden" id="pointQualificationFields">
+          <div class="choice-section point-system-section">
+            <div class="choice-heading">Stigskipan</div>
+            <div
+              class="choice-buttons single-choice"
+              id="pointSystemChoices"
+              role="radiogroup"
+              aria-label="Stigskipan"
+            >
+              <button type="button" class="choice-button active" data-choice="pointSystem" data-value="sinclair">Sinclair</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="qpoints">Q-points</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="qmasters">Q-Masters</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="gamx">GAMX</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="gamxM">GAMX-M</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="gamxA">GAMX-A</button>
+              <button type="button" class="choice-button" data-choice="pointSystem" data-value="gamxU">GAMX-U</button>
+            </div>
+          </div>
+
+          <div class="choice-section point-requirements-section">
+            <div class="point-requirements-header">
+              <div class="choice-heading">Stigkrøv</div>
+              <div class="point-adjustment-slot" id="pointCompetitionAdjustmentSlot"></div>
+            </div>
+            <div class="point-requirements-grid">
+              <label>
+                Menn
+                <input id="pointRequirementMen" type="text" inputmode="decimal" placeholder="t.d. 285" />
+              </label>
+              <label>
+                Kvinnur
+                <input id="pointRequirementWomen" type="text" inputmode="decimal" placeholder="t.d. 200" />
+              </label>
+            </div>
           </div>
         </div>
 
@@ -602,7 +687,7 @@
         window.dispatchEvent(new Event("firebase-services-error"));
       }
     </script>
-    <script src="data.js"></script>
-    <script src="script.js?v=stepper-clamp-fix"></script>
+    <script src="gamx-data.js?v=gamx-enabled"></script>
+    <script src="script.js?v=production-hardening"></script>
   </body>
 </html>

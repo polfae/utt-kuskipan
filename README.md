@@ -2,50 +2,15 @@
 
 Statisk HTML/CSS/JavaScript síða til at umsita og kanna føroysk úttøkukrøv í vektlyfting.
 
-## Nýtt í hesi útgávuni
+## Dátukelda
 
-- Úttøkukrøv, vektflokkar og totals verða nú broytt inni í sjálvum **Broyt kapping** vindeyganum.
-- Høvuðslistin undir **Stillingar → Úttøkukrøv** vísir nú bert kappingarnar; klikk á eina kapping fyri at broyta hana.
-- Striking av kappingum er flutt inn í **Broyt kapping** vindeygað við einari varning.
-- Tú kanst framvegis stovna, broyta og strika bólkar og kappingar.
-- Tú kanst framvegis leggja vektflokkar afturat og strika vektflokkar inni á edit-vindeyganum.
-- Vektflokkar verða framvegis ikki endurraðaðir meðan skrivað verður; raðingin hendir tá input verður frávalt ella Enter verður trýst.
+Firestore skjalið `qualificationSystems/faroe` er keldan til almennu úttøkukrøvini.
 
-## Brúk
-
-Lat `index.html` upp í einum kagara ella legg mappuna á GitHub Pages.
-
-
-## Latest update
-
-Competition actions have been simplified: the settings overview only shows competition names, clicking a competition opens the edit modal, and the destructive **Strika** action is now inside the edit modal next to **Goym broytingar** with confirmation.
-
-
-## Seinasta dagføring
-
-- Kravstig í kappingar-edit vindeyganum dagførir nú úttøkukrøvini beinanvegin.
-- Tá ein kapping verður broytt frá vanligum úttøkukravi til A/B/C, verða verandi krøvini flutt til A-krav.
-- B-krav og C-krav verða stovnað beinanvegin, so tey kunnu broytast uttan at goyma og lata vindeygað upp aftur.
-- Tá A/B/C verður broytt aftur til vanligt úttøkukrav, verða A-krøvini varðveitt sum nýggja minimumskravið.
-
-## Latest update
-- Display and result tables now use equal-width columns.
-- Table headers and values are centered horizontally so values align directly under their headings.
-
-## Seinastu broytingar
-
-- Vektflokkar á høvuðssíðuni vísa nú minus frammanfyri vanliga flokkar, t.d. `-86 kg`, meðan plussflokkar vísa `86+ kg`.
-- Úttøkukrøv á høvuðssíðuni vísa nú `kg` aftaná talið.
-
-
-## Static elevated cards
-
-Cards and content containers now have a subtle permanent elevated look instead of relying on mouse hover movement.
-
-
-## Latest change
-
-Settings and edit modals are now top-aligned so switching tabs changes only the bottom height of the modal, not the top position.
+- Um Firestore dátur verða lisnar inn, vísir síðan tær dátur.
+- Um Firestore ikki kann lesast, vísir síðan eina greiða fráboðan um, at úttøkukrøvini ikki eru tøk.
+- Síðan vísir ikki longur gomul hardcoded úttøkukrøv sum fallback.
+- `localStorage` verður brúkt sum lokal hjálp/cacha meðan brúkarin arbeiðir, men verður ikki brúkt sum almenn fallback-dátukelda um Firestore miseydnast.
+- Trygdaravrit kann takast niður og lesast inn aftur sum JSON.
 
 ## Firebase backend
 
@@ -54,7 +19,6 @@ Denne útgávan brúkar Firebase Authentication og Cloud Firestore.
 - Úttøkukrøvini kunnu síggjast alment.
 - Stillingar krevja innriting við Firebase Authentication.
 - Broytingar verða goymdar í Firestore í skjalinum `qualificationSystems/faroe`.
-- `localStorage` verður framvegis brúkt sum lokal cache/fallback.
 
 Firestore reglur:
 
@@ -71,26 +35,29 @@ service cloud.firestore {
 }
 ```
 
-## Update
-- Settings modal no longer includes its own logout button; logout remains on the main page after login.
-- Masters competitions on the main page now use age-group tabs, so only one masters age group is shown at a time.
+## Høvuðsvirkni
 
+- Tvídystur-kappingar við kravum eftir kyni og vektflokki.
+- Stig-kappingar við Sinclair, Q-points, Q-Masters, GAMX, GAMX-M, GAMX-A og GAMX-U.
+- Aldursbólkar/eligibility fyri bæði Tvídystur og Stig, har tað er viðkomandi.
+- Kappingar kunnu goyma bæði Tvídystur- og Stig-data, so brúkarin kann skifta aftur og fram uttan at missa dátur.
+- `Dagført` verður dagført, tá kapping verður goymd.
+- Backup/import-export er tøkt í stillingum.
 
-## Firestore as source of truth
+## Point/stig calculations
 
-This version protects the saved qualification data in Firestore. The built-in data files are only fallback/startup data and are not allowed to overwrite Firestore before the database has finished loading. Cloud saving is blocked until Firestore has been checked, so future website code updates should not reset the qualification totals stored in `qualificationSystems / faroe`.
+- Sinclair brúkar 2025–2028 Sinclair coefficients.
+- Q-points brúkar Q-points formula.
+- Q-Masters brúkar Q-points × IMWA age factor.
+- GAMX-variantar brúka parametrar úr `gamx-data.js`, sum er útleitt frá `GAMX_calculator_allages_current.xlsx`.
 
-Update: moved the "+ Nýggjur bólkur" action to the same row as the settings navigation tabs, aligned to the far right. Firestore remains the source of truth for qualification data.
+## Tests
 
+Smoke/edge-case tests liggja í `tests/`:
 
-## Update
-
-- Removed the extra “Úttøkukrøv / Broyt vektflokkar og krøv fyri hesa kappingina.” intro text from the competition edit modal.
-
-
-Update: competition-specific percentage adjustment
-- Removed the global “Lækkingar” settings tab from the UI.
-- Each competition now stores its own adjustmentPercent value in Firestore with the rest of the competition data.
-- Public tables and the qualification checker calculate shown requirements from the base value using floor(base × (1 + adjustmentPercent / 100)).
-- Positive values increase requirements and display with a plus sign, e.g. +5 %. Negative values reduce requirements, e.g. -5 %.
-- Firestore remains the source of truth; hardcoded/default data is only fallback if no database document is available.
+```bash
+node tests/point-calculations.test.js
+node tests/gamx-calculations.test.js
+node tests/point-edge-cases.test.js
+node tests/no-stale-data.test.js
+```

@@ -3,7 +3,201 @@ const DEFAULT_SETTINGS = {
   percentB: 10,
 };
 
+const BACKUP_SCHEMA = "faroese-qualification-system-backup";
+const BACKUP_VERSION = 1;
+const DATA_LOADING_MESSAGE = "Úttøkukrøvini verða innlisin.";
+const DATA_UNAVAILABLE_MESSAGE = "Úttøkukrøvini eru ikki tøk í løtuni. Royn aftur seinni.";
+const NO_DATA_MESSAGE = "Eingi úttøkukrøv eru skrásett enn.";
+
 const DEFAULT_COMPETITION_RULE_PERCENT = 3;
+
+const DEFAULT_SENIOR_JUNIOR_WEIGHT_CLASSES = {
+  men: ["60", "65", "70", "75", "85", "95", "110", "110+"],
+  women: ["49", "53", "57", "61", "69", "77", "86", "86+"],
+};
+
+const DEFAULT_YOUTH_WEIGHT_CLASSES = {
+  men: ["55", "60", "65", "70", "75", "85", "95", "95+"],
+  women: ["45", "49", "53", "57", "61", "69", "77", "77+"],
+};
+
+function getDefaultWeightClassesForAgeCategory(ageCategory) {
+  return ageCategory === "ung" || ageCategory === "u17" || ageCategory === "u15"
+    ? DEFAULT_YOUTH_WEIGHT_CLASSES
+    : DEFAULT_SENIOR_JUNIOR_WEIGHT_CLASSES;
+}
+
+function getDefaultWeightClassesForCompetition(competition) {
+  const ageRule = competition?.ageRule || {};
+  const label = String(ageRule.label || "").toLowerCase();
+  const maxAge = Number(ageRule.max);
+  const isYouthCompetition =
+    label === "ung" ||
+    label === "u17" ||
+    label === "u15" ||
+    maxAge === 15 ||
+    maxAge === 17;
+
+  return isYouthCompetition
+    ? DEFAULT_YOUTH_WEIGHT_CLASSES
+    : DEFAULT_SENIOR_JUNIOR_WEIGHT_CLASSES;
+}
+
+const DEFAULT_QUALIFICATION_TYPE = "total";
+const DEFAULT_POINT_SYSTEM = "sinclair";
+const DEFAULT_SINCLAIR_CYCLE = "2025-2028";
+const POINT_COMPARISON_EPSILON = 1e-9;
+
+const POINT_SYSTEMS = {
+  sinclair: { label: "Sinclair", available: true },
+  qpoints: { label: "Q-points", available: true },
+  qmasters: { label: "Q-Masters", available: true },
+  gamx: { label: "GAMX", available: true, system: "gamx", gamxType: "gamx" },
+  gamxM: { label: "GAMX-M", available: true, system: "gamx", gamxType: "gamxM" },
+  gamxA: { label: "GAMX-A", available: true, system: "gamx", gamxType: "gamxA" },
+  gamxU: { label: "GAMX-U", available: true, system: "gamx", gamxType: "gamxU" },
+};
+
+const AGE_SPECIFIC_POINT_SYSTEMS = {
+  qmasters: { impliedAgeGroup: "masters", label: "Masters" },
+  gamxM: { impliedAgeGroup: "masters", label: "Masters" },
+  gamxU: { impliedAgeGroup: "ung", label: "Ung" },
+};
+
+const SINCLAIR_COEFFICIENTS = {
+  "2025-2028": {
+    // Derived from the official 2025-2028 Sinclair coefficient tables.
+    men: { A: 0.70064, B: 201.175 },
+    women: { A: 0.67398, B: 163.929 },
+  },
+};
+
+const QMASTERS_AGE_FACTORS = {
+  // IMWA Q-Masters age factors. Indexed by Masters age at 31 December
+  // of the competition year. Official tables begin at age 35.
+  men: {
+    "35": 1.052,
+    "36": 1.063,
+    "37": 1.073,
+    "38": 1.084,
+    "39": 1.096,
+    "40": 1.108,
+    "41": 1.122,
+    "42": 1.138,
+    "43": 1.155,
+    "44": 1.173,
+    "45": 1.194,
+    "46": 1.216,
+    "47": 1.240,
+    "48": 1.265,
+    "49": 1.292,
+    "50": 1.321,
+    "51": 1.352,
+    "52": 1.384,
+    "53": 1.419,
+    "54": 1.456,
+    "55": 1.494,
+    "56": 1.534,
+    "57": 1.575,
+    "58": 1.617,
+    "59": 1.660,
+    "60": 1.704,
+    "61": 1.748,
+    "62": 1.794,
+    "63": 1.841,
+    "64": 1.890,
+    "65": 1.942,
+    "66": 1.996,
+    "67": 2.052,
+    "68": 2.109,
+    "69": 2.168,
+    "70": 2.226,
+    "71": 2.285,
+    "72": 2.343,
+    "73": 2.402,
+    "74": 2.464,
+    "75": 2.528,
+    "76": 2.597,
+    "77": 2.670,
+    "78": 2.749,
+    "79": 2.831,
+    "80": 2.918,
+    "81": 3.009,
+    "82": 3.104,
+    "83": 3.201,
+    "84": 3.301,
+    "85": 3.403,
+    "86": 3.507,
+    "87": 3.613,
+    "88": 3.720,
+    "89": 3.827,
+    "90": 3.935
+  },
+  women: {
+    "35": 1.052,
+    "36": 1.064,
+    "37": 1.076,
+    "38": 1.088,
+    "39": 1.100,
+    "40": 1.112,
+    "41": 1.124,
+    "42": 1.136,
+    "43": 1.148,
+    "44": 1.160,
+    "45": 1.173,
+    "46": 1.187,
+    "47": 1.201,
+    "48": 1.215,
+    "49": 1.230,
+    "50": 1.247,
+    "51": 1.264,
+    "52": 1.283,
+    "53": 1.304,
+    "54": 1.327,
+    "55": 1.351,
+    "56": 1.376,
+    "57": 1.401,
+    "58": 1.425,
+    "59": 1.451,
+    "60": 1.477,
+    "61": 1.504,
+    "62": 1.531,
+    "63": 1.560,
+    "64": 1.589,
+    "65": 1.620,
+    "66": 1.654,
+    "67": 1.693,
+    "68": 1.736,
+    "69": 1.784,
+    "70": 1.833,
+    "71": 1.883,
+    "72": 1.932,
+    "73": 1.981,
+    "74": 2.031,
+    "75": 2.083,
+    "76": 2.139,
+    "77": 2.202,
+    "78": 2.271,
+    "79": 2.348,
+    "80": 2.430,
+    "81": 2.524,
+    "82": 2.635,
+    "83": 2.755,
+    "84": 2.877,
+    "85": 3.008,
+    "86": 3.168,
+    "87": 3.356,
+    "88": 3.545,
+    "89": 3.709,
+    "90": 3.880,
+    "91": 4.059,
+    "92": 4.247,
+    "93": 4.443,
+    "94": 4.648,
+    "95": 4.863
+  },
+};
+const GAMX_DATA = window.GAMX_DATA || { gamx: null, gamxM: null, gamxA: null, gamxU: null };
 
 const FIREBASE_COLLECTION = "qualificationSystems";
 const FIREBASE_SYSTEM_ID = "faroe";
@@ -84,10 +278,9 @@ const AGE_RULES = {
   "nm-senior": { min: 15, max: null, label: "Senior" },
 };
 
-const DEFAULT_QUALIFICATION_DATA = normalizeQualificationData(
-  deepClone(QUALIFICATION_DATA),
-);
-let qualificationData = loadQualificationData();
+// Firestore/live data is the source of truth for public requirements.
+// Start empty so bundled/default code can never be shown as official fallback.
+let qualificationData = [];
 let settings = loadSettings();
 let activeCompetitionSlug = qualificationData[0]?.slug || "";
 let activeRequirementFilters = {};
@@ -218,7 +411,14 @@ const elements = {
   newGroupShortLabel: document.getElementById("newGroupShortLabel"),
   newCompetitionName: document.getElementById("newCompetitionName"),
   newCompetitionYear: document.getElementById("newCompetitionYear"),
+  qualificationTypeChoices: document.getElementById("qualificationTypeChoices"),
+  totalQualificationFields: document.getElementById("totalQualificationFields"),
+  pointQualificationFields: document.getElementById("pointQualificationFields"),
+  pointSystemChoices: document.getElementById("pointSystemChoices"),
+  pointRequirementMen: document.getElementById("pointRequirementMen"),
+  pointRequirementWomen: document.getElementById("pointRequirementWomen"),
   competitionTypeChoices: document.getElementById("competitionTypeChoices"),
+  competitionTypeSection: document.getElementById("competitionTypeSection"),
   mastersAgeChoicesPanel: document.getElementById("mastersAgeChoicesPanel"),
   mastersAgeChoices: document.getElementById("mastersAgeChoices"),
   requirementLevelChoices: document.getElementById("requirementLevelChoices"),
@@ -230,11 +430,17 @@ const elements = {
   editCompetitionTotalsEditor: document.getElementById(
     "editCompetitionTotalsEditor",
   ),
+  pointCompetitionAdjustmentSlot: document.getElementById(
+    "pointCompetitionAdjustmentSlot",
+  ),
   editGroupDialog: document.getElementById("editGroupDialog"),
   editGroupForm: document.getElementById("editGroupForm"),
   editGroupName: document.getElementById("editGroupName"),
   editGroupShortLabel: document.getElementById("editGroupShortLabel"),
   saveGroupButton: document.getElementById("saveGroupButton"),
+  exportBackupButton: document.getElementById("exportBackupButton"),
+  importBackupButton: document.getElementById("importBackupButton"),
+  importBackupInput: document.getElementById("importBackupInput"),
   authDialog: document.getElementById("authDialog"),
   authForm: document.getElementById("authForm"),
   authEmail: document.getElementById("authEmail"),
@@ -246,13 +452,29 @@ const elements = {
 init();
 
 function init() {
+  renderDataDependentViews();
+  bindEvents();
+  updateAuthControls();
+  initFirebaseIntegration();
+}
+
+function renderDataDependentViews() {
   renderTabs();
   renderActiveSettings();
   renderCompetition();
   renderChecker();
-  bindEvents();
-  updateAuthControls();
-  initFirebaseIntegration();
+  renderTotalsEditor();
+}
+
+function getDataStatusMessage() {
+  if (firebaseState.cloudLoadFailed) return DATA_UNAVAILABLE_MESSAGE;
+  if (firebaseState.loadingRemote || !firebaseState.services) return DATA_LOADING_MESSAGE;
+  if (firebaseState.cloudLoadComplete && !qualificationData.length) return NO_DATA_MESSAGE;
+  return "";
+}
+
+function renderDataStatusCard(message) {
+  return `<div class="empty-state data-status-card">${escapeHtml(message)}</div>`;
 }
 
 function updateGenderSegment() {
@@ -304,6 +526,12 @@ function bindEvents() {
     renderChecker();
   });
 
+  elements.exportBackupButton?.addEventListener("click", exportSystemBackup);
+  elements.importBackupButton?.addEventListener("click", () => {
+    elements.importBackupInput?.click();
+  });
+  elements.importBackupInput?.addEventListener("change", handleBackupFileSelected);
+
   elements.totalsEditor.addEventListener("dragstart", handleSettingsDragStart);
   elements.totalsEditor.addEventListener("dragover", handleSettingsDragOver);
   elements.totalsEditor.addEventListener("dragleave", handleSettingsDragLeave);
@@ -311,6 +539,12 @@ function bindEvents() {
   elements.totalsEditor.addEventListener("dragend", handleSettingsDragEnd);
 
   elements.totalsEditor.addEventListener("input", (event) => {
+    const pointRequirementInput = event.target.closest("[data-point-requirement]");
+    if (pointRequirementInput) {
+      updatePointRequirement(pointRequirementInput);
+      return;
+    }
+
     const totalInput = event.target.closest("[data-total-input]");
     if (totalInput) {
       updateOriginalTotal(totalInput);
@@ -433,6 +667,28 @@ function bindEvents() {
     setSingleChoice(elements.competitionTypeChoices, button.dataset.value);
     renderMastersAgeChoices();
     updateMastersAgeVisibility();
+    markAddCompetitionDirty();
+  });
+
+  elements.qualificationTypeChoices?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-choice='qualificationType']");
+    if (!button) return;
+
+    const currentValue = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
+    const nextValue = button.dataset.value;
+    if (currentValue === nextValue) return;
+
+    setSingleChoice(elements.qualificationTypeChoices, nextValue);
+    updateQualificationTypeVisibility();
+    markAddCompetitionDirty();
+  });
+
+  elements.pointSystemChoices?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-choice='pointSystem']");
+    if (!button || button.disabled) return;
+    setSingleChoice(elements.pointSystemChoices, button.dataset.value);
+    updateQualificationTypeVisibility();
+    markAddCompetitionDirty();
   });
 
   elements.requirementLevelChoices.addEventListener("click", (event) => {
@@ -457,6 +713,12 @@ function bindEvents() {
 
     const rulePercentInput = event.target.closest("[data-competition-rule-percent-input]");
     if (rulePercentInput) return;
+
+    const pointRequirementInput = event.target.closest("[data-point-requirement]");
+    if (pointRequirementInput) {
+      updatePointRequirement(pointRequirementInput);
+      return;
+    }
 
     const totalInput = event.target.closest("[data-total-input]");
     if (totalInput) {
@@ -803,7 +1065,10 @@ function initFirebaseIntegration() {
     "firebase-services-error",
     () => {
       firebaseState.ready = false;
+      firebaseState.cloudLoadFailed = true;
+      firebaseState.loadingRemote = false;
       console.error("Firebase initialization failed", window.firebaseServicesError);
+      renderDataDependentViews();
     },
     { once: true },
   );
@@ -830,23 +1095,19 @@ async function loadSystemFromCloud() {
   try {
     const { db, doc, getDoc, getDocFromServer } = firebaseState.services;
     const reference = doc(db, FIREBASE_COLLECTION, FIREBASE_SYSTEM_ID);
-    let snapshot;
-    try {
-      // Firestore is the source of truth. Force a server read so old local
-      // browser/localStorage data cannot override the saved database version.
-      snapshot = getDocFromServer
-        ? await getDocFromServer(reference)
-        : await getDoc(reference);
-    } catch (serverError) {
-      console.warn(
-        "Could not load qualification system directly from Firestore server. Falling back to Firestore cache only; local/default data will not be saved over the database.",
-        serverError,
-      );
-      snapshot = await getDoc(reference);
-    }
+    // Firestore server data is the source of truth. Do not fall back to
+    // bundled or cached qualification data, because stale requirements are
+    // worse than showing no data.
+    const snapshot = getDocFromServer
+      ? await getDocFromServer(reference)
+      : await getDoc(reference);
 
     firebaseState.remoteDocumentExists = snapshot.exists();
     if (!snapshot.exists()) {
+      qualificationData = [];
+      localStorage.removeItem("qualificationOriginalTotals");
+      activeCompetitionSlug = "";
+      activeTotalsCompetitionSlug = "";
       firebaseState.cloudLoadComplete = true;
       return;
     }
@@ -877,19 +1138,18 @@ async function loadSystemFromCloud() {
       : qualificationData[0]?.slug || "";
     activeTotalsCompetitionSlug = activeCompetitionSlug;
 
-    renderTabs();
-    renderActiveSettings();
-    renderCompetition();
-    renderChecker();
-    renderTotalsEditor();
     firebaseState.cloudLoadComplete = true;
   } catch (error) {
     firebaseState.cloudLoadFailed = true;
     firebaseState.cloudLoadComplete = false;
+    qualificationData = [];
+    activeCompetitionSlug = "";
+    activeTotalsCompetitionSlug = "";
     console.error("Could not load qualification system from Firestore", error);
   } finally {
     firebaseState.applyingRemote = false;
     firebaseState.loadingRemote = false;
+    renderDataDependentViews();
   }
 }
 
@@ -940,6 +1200,125 @@ async function saveSystemToCloud() {
   }
 }
 
+
+// Backup exports/imports the complete app state so federation data can be restored safely.
+function createSystemBackup() {
+  return {
+    schema: BACKUP_SCHEMA,
+    version: BACKUP_VERSION,
+    exportedAt: getCurrentTimestamp(),
+    settings: normalizeSettings(settings),
+    qualificationData: normalizeQualificationData(deepClone(qualificationData)),
+  };
+}
+
+function exportSystemBackup() {
+  const backup = createSystemBackup();
+  const content = JSON.stringify(backup, null, 2);
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `uttokukrov-backup-${formatDateForFilename(new Date())}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatDateForFilename(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function handleBackupFileSelected(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    importSystemBackup(String(reader.result || ""));
+  });
+  reader.addEventListener("error", () => {
+    window.alert("Trygdaravritið kundi ikki lesast.");
+  });
+  reader.readAsText(file);
+}
+
+function importSystemBackup(rawContent) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch {
+    window.alert("Hetta sær ikki út til at vera ein gild JSON-fíla.");
+    return;
+  }
+
+  const validation = validateSystemBackup(parsed);
+  if (!validation.valid) {
+    window.alert(validation.error);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Hetta fer at yvirskriva verandi dátur. Ert tú vís/ur í, at tú vilt halda fram?",
+  );
+  if (!confirmed) return;
+
+  settings = validation.settings;
+  qualificationData = validation.qualificationData;
+  localStorage.setItem("qualificationPercentageSettings", JSON.stringify(settings));
+  localStorage.setItem("qualificationOriginalTotals", JSON.stringify(qualificationData));
+
+  activeCompetitionSlug = qualificationData.some(
+    (competition) => competition.slug === activeCompetitionSlug,
+  )
+    ? activeCompetitionSlug
+    : qualificationData[0]?.slug || "";
+  activeTotalsCompetitionSlug = activeCompetitionSlug;
+  activeTotalsRequirementTitle = "";
+
+  renderTabs();
+  renderActiveSettings();
+  renderCompetition();
+  renderChecker();
+  renderTotalsEditor();
+  scheduleCloudSave();
+  window.alert("Trygdaravritið er lisið inn.");
+}
+
+function validateSystemBackup(value) {
+  if (!value || typeof value !== "object") {
+    return {
+      valid: false,
+      error: "Trygdaravritið hevur ikki rætta bygnaðin.",
+    };
+  }
+
+  if (value.schema !== BACKUP_SCHEMA) {
+    return {
+      valid: false,
+      error: "Hetta sær ikki út til at vera eitt trygdaravrit frá hesi skipanini.",
+    };
+  }
+
+  if (!Array.isArray(value.qualificationData)) {
+    return {
+      valid: false,
+      error: "Trygdaravritið manglar úttøkukrøvini.",
+    };
+  }
+
+  return {
+    valid: true,
+    settings: normalizeSettings(value.settings || DEFAULT_SETTINGS),
+    qualificationData: normalizeQualificationData(value.qualificationData),
+  };
+}
+
 function loadSettings() {
   const stored = localStorage.getItem("qualificationPercentageSettings");
   if (!stored) return { ...DEFAULT_SETTINGS };
@@ -961,19 +1340,6 @@ function saveSettings(value) {
     JSON.stringify(value),
   );
   scheduleCloudSave();
-}
-
-function loadQualificationData() {
-  const stored = localStorage.getItem("qualificationOriginalTotals");
-  if (!stored)
-    return normalizeQualificationData(deepClone(DEFAULT_QUALIFICATION_DATA));
-  try {
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed)) return normalizeQualificationData(parsed);
-    return normalizeQualificationData(deepClone(DEFAULT_QUALIFICATION_DATA));
-  } catch {
-    return normalizeQualificationData(deepClone(DEFAULT_QUALIFICATION_DATA));
-  }
 }
 
 function saveQualificationData(value) {
@@ -1009,7 +1375,15 @@ function normalizeQualificationData(data) {
           competition.displayOptions ||
             legacyDisplayOptionsFromReductionFlag(competition),
         ),
+        updatedAt: isValidDateString(competition.updatedAt)
+          ? competition.updatedAt
+          : "",
       };
+      normalized.qualificationType = getQualificationType(normalized);
+      normalized.pointSystem = getNormalizedPointSystem(normalized);
+      normalized.gamxType = getNormalizedGamxType(normalized);
+      normalized.sinclairCycle = normalized.sinclairCycle || DEFAULT_SINCLAIR_CYCLE;
+      normalized.pointRequirements = normalizePointRequirements(normalized.pointRequirements);
       normalized.adjustmentPercent = getCompetitionAdjustmentPercent(normalized);
       normalized.rulePercent = Object.prototype.hasOwnProperty.call(normalized, "rulePercent")
         ? getCompetitionRulePercent(normalized)
@@ -1210,22 +1584,46 @@ function renderEditCompetitionTotalsEditor() {
       )
     : null;
 
-  elements.editCompetitionTotalsPanel.classList.toggle(
-    "is-hidden",
-    !competition,
-  );
-  if (!competition) {
+  renderPointCompetitionAdjustmentSlot(competition);
+
+  const selectedQualificationType =
+    getActiveChoice(elements.qualificationTypeChoices) ||
+    getQualificationType(competition) ||
+    DEFAULT_QUALIFICATION_TYPE;
+  const shouldShowTotalEditor = selectedQualificationType === "total";
+  const totalCompetition = shouldShowTotalEditor
+    ? createCompetitionWithPreservedTotalSetup(competition)
+    : null;
+
+  if (!competition || !shouldShowTotalEditor || !totalCompetition) {
+    elements.editCompetitionTotalsPanel.classList.add("is-hidden");
     elements.editCompetitionTotalsEditor.innerHTML = "";
     return;
   }
 
+  elements.editCompetitionTotalsPanel.classList.remove("is-hidden");
   activeTotalsCompetitionSlug = competition.slug;
   elements.editCompetitionTotalsEditor.innerHTML =
-    renderCompetitionTotalsEditorContent(competition);
+    renderCompetitionTotalsEditorContent(totalCompetition);
   bindTotalsEditorTabs(elements.editCompetitionTotalsEditor);
 }
 
+function renderPointCompetitionAdjustmentSlot(competition) {
+  if (!elements.pointCompetitionAdjustmentSlot) return;
+  const showAdjustment =
+    addCompetitionState.mode === "edit-competition" &&
+    competition &&
+    isPointCompetition(competition);
+  elements.pointCompetitionAdjustmentSlot.innerHTML = showAdjustment
+    ? renderCompetitionDisplayControls(competition)
+    : "";
+}
+
 function renderCompetitionTotalsEditorContent(activeCompetition) {
+  if (isPointCompetition(activeCompetition)) {
+    return renderPointCompetitionEditor(activeCompetition);
+  }
+
   const search = "";
   const requirementTitles = getRequirementTitles(activeCompetition);
   if (
@@ -1442,7 +1840,7 @@ function renderTotalsCompetitionTabs() {
                 aria-label="Broyt ${escapeAttribute(competition.name)}"
                 title="Broyt kapping"
               >
-                ${escapeHtml(competition.name)}
+                <span>${escapeHtml(competition.name)}</span>
               </button>
             </div>
           `,
@@ -2321,30 +2719,34 @@ function renderCompetitionPercentStepper({
 
 function renderCompetitionDisplayControls(competition) {
   const adjustmentPercent = getCompetitionAdjustmentPercent(competition);
-  const rulePercent = getCompetitionRulePercent(competition);
+  const adjustmentControl = renderCompetitionPercentStepper({
+    label: "Ávirkan á krøv",
+    value: adjustmentPercent,
+    inputDataAttribute: "data-competition-adjustment-input",
+    stepDataAttribute: "data-competition-adjustment-step",
+    stepUpLabel: "Hækka ávirkan á krøv",
+    stepDownLabel: "Lækka ávirkan á krøv",
+    slug: competition.slug,
+    signed: true,
+  });
+  const ruleControl = isPointCompetition(competition)
+    ? ""
+    : renderCompetitionPercentStepper({
+        label: "% regla",
+        value: getCompetitionRulePercent(competition),
+        inputDataAttribute: "data-competition-rule-percent-input",
+        stepDataAttribute: "data-competition-rule-percent-step",
+        stepUpLabel: "Hækka prosentreglu",
+        stepDownLabel: "Lækka prosentreglu",
+        slug: competition.slug,
+      });
+
   return `
     <fieldset class="competition-display-options competition-adjustment-options" aria-label="Krav og vektregla fyri hesa kapping">
       <legend>Krav í hesi kapping</legend>
       <div class="competition-adjustment-row">
-        ${renderCompetitionPercentStepper({
-          label: "Ávirkan á krøv",
-          value: adjustmentPercent,
-          inputDataAttribute: "data-competition-adjustment-input",
-          stepDataAttribute: "data-competition-adjustment-step",
-          stepUpLabel: "Hækka ávirkan á krøv",
-          stepDownLabel: "Lækka ávirkan á krøv",
-          slug: competition.slug,
-          signed: true,
-        })}
-        ${renderCompetitionPercentStepper({
-          label: "% regla",
-          value: rulePercent,
-          inputDataAttribute: "data-competition-rule-percent-input",
-          stepDataAttribute: "data-competition-rule-percent-step",
-          stepUpLabel: "Hækka prosentreglu",
-          stepDownLabel: "Lækka prosentreglu",
-          slug: competition.slug,
-        })}
+        ${adjustmentControl}
+        ${ruleControl}
       </div>
     </fieldset>
   `;
@@ -2435,6 +2837,12 @@ function getRequirementColumnLabel() {
 
 function renderTabs() {
   const groups = getCompetitionGroups();
+  const statusMessage = getDataStatusMessage();
+
+  if (!groups.length) {
+    elements.tabs.innerHTML = statusMessage ? renderDataStatusCard(statusMessage) : "";
+    return;
+  }
 
   elements.tabs.innerHTML = groups
     .map((group) => {
@@ -2444,7 +2852,7 @@ function renderTabs() {
         .map(
           (competition) => `
         <button class="tab-button${competition.slug === activeCompetitionSlug ? " active" : ""}" type="button" data-competition-slug="${escapeAttribute(competition.slug)}">
-          ${escapeHtml(competition.name)}
+          <span>${escapeHtml(competition.name)}</span>
         </button>
       `,
         )
@@ -2478,7 +2886,16 @@ function renderCompetition() {
   const competition =
     qualificationData.find((item) => item.slug === activeCompetitionSlug) ||
     qualificationData[0];
-  if (!competition) return;
+  if (!competition) {
+    const statusMessage = getDataStatusMessage() || NO_DATA_MESSAGE;
+    elements.panel.innerHTML = renderDataStatusCard(statusMessage);
+    return;
+  }
+
+  if (isPointCompetition(competition)) {
+    renderPointCompetition(competition);
+    return;
+  }
 
   const requirementTitles = getRequirementTitles(competition);
   const activeFilter = getActiveRequirementFilter(competition);
@@ -2515,6 +2932,7 @@ function renderCompetition() {
       ${renderTable("Menn", menRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
       ${renderTable("Kvinnur", womenRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
     </div>
+    ${renderUpdatedAtText(competition)}
   `;
 
   const requirementButtons = elements.panel.querySelectorAll(
@@ -2614,7 +3032,7 @@ function renderTable(label, rows, showTitleColumn = false, competition = null, h
 function getRequirementTitles(competition) {
   const titles = [
     ...new Set(
-      [...competition.men, ...competition.women].map((row) => row.title),
+      [...(competition.men || []), ...(competition.women || [])].map((row) => row.title),
     ),
   ];
   return titles.sort(requirementTitleSort);
@@ -2643,6 +3061,534 @@ function filterRowsByRequirement(rows, activeFilter) {
   return rows.filter((row) => row.title === activeFilter);
 }
 
+
+function getQualificationType(competition) {
+  return competition?.qualificationType === "points" ? "points" : "total";
+}
+
+function isPointCompetition(competition) {
+  return getQualificationType(competition) === "points";
+}
+
+function getNormalizedPointSystem(competition) {
+  const raw = competition?.pointSystem || DEFAULT_POINT_SYSTEM;
+  if (raw === "gamxM" || raw === "gamxA" || raw === "gamxU") return "gamx";
+  if (POINT_SYSTEMS[raw]) return raw;
+  return DEFAULT_POINT_SYSTEM;
+}
+
+function getNormalizedGamxType(competition) {
+  if (competition?.pointSystem === "gamxM") return "gamxM";
+  if (competition?.pointSystem === "gamxA") return "gamxA";
+  if (competition?.pointSystem === "gamxU") return "gamxU";
+  const raw = competition?.gamxType;
+  return ["gamx", "gamxM", "gamxA", "gamxU"].includes(raw) ? raw : "";
+}
+
+function normalizePointRequirements(requirements) {
+  return {
+    men: normalizeOptionalNumber(requirements?.men),
+    women: normalizeOptionalNumber(requirements?.women),
+  };
+}
+
+function normalizeOptionalNumber(value) {
+  const number = parseLocaleNumber(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function getPointSystemChoiceValue(competition) {
+  const pointSystem = getNormalizedPointSystem(competition);
+  if (pointSystem === "gamx") return getNormalizedGamxType(competition) || "gamx";
+  return pointSystem;
+}
+
+function isAgeSpecificPointSystemChoice(choice) {
+  return Boolean(AGE_SPECIFIC_POINT_SYSTEMS[choice]);
+}
+
+function isCompetitionAgeSpecificPointSystem(competition) {
+  return isPointCompetition(competition) && isAgeSpecificPointSystemChoice(getPointSystemChoiceValue(competition));
+}
+
+function getPointSystemDisplayNameFromValues(pointSystem, gamxType = "") {
+  if (pointSystem === "gamx") {
+    return POINT_SYSTEMS[gamxType || "gamx"]?.label || "GAMX";
+  }
+  return POINT_SYSTEMS[pointSystem]?.label || "Ókend stigskipan";
+}
+
+function getCompetitionPointSystemDisplayName(competition) {
+  return getPointSystemDisplayNameFromValues(
+    getNormalizedPointSystem(competition),
+    getNormalizedGamxType(competition),
+  );
+}
+
+
+function formatPointRequirementInput(value) {
+  return Number.isFinite(Number(value)) ? formatStepperNumber(Number(value), 1) : "";
+}
+
+function getPointSetupFromDialog() {
+  const selected = getActiveChoice(elements.pointSystemChoices) || DEFAULT_POINT_SYSTEM;
+  const selectedConfig = POINT_SYSTEMS[selected] || POINT_SYSTEMS[DEFAULT_POINT_SYSTEM];
+  const isGamxChoice = selectedConfig.system === "gamx" || selected.startsWith("gamx");
+  return {
+    pointSystem: isGamxChoice ? "gamx" : selected,
+    gamxType: isGamxChoice ? selectedConfig.gamxType || selected : "",
+    sinclairCycle: DEFAULT_SINCLAIR_CYCLE,
+    pointRequirements: {
+      men: normalizeOptionalNumber(elements.pointRequirementMen?.value),
+      women: normalizeOptionalNumber(elements.pointRequirementWomen?.value),
+    },
+  };
+}
+
+function validatePointCompetitionSetup(pointSetup) {
+  if (!pointSetup.pointSystem) return "Vel stigskipan.";
+  const selected = pointSetup.pointSystem === "gamx" ? pointSetup.gamxType : pointSetup.pointSystem;
+  const selectedConfig = POINT_SYSTEMS[selected];
+  if (!selectedConfig) return "Vel stigskipan.";
+  if (!selectedConfig.available) {
+    return `${selectedConfig.label} kann ikki brúkast enn, tí almenn rokni-data vantar.`;
+  }
+  if (!Number.isFinite(pointSetup.pointRequirements.men)) {
+    return "Skriva stigkrav fyri menn.";
+  }
+  if (!Number.isFinite(pointSetup.pointRequirements.women)) {
+    return "Skriva stigkrav fyri kvinnur.";
+  }
+  if (pointSetup.pointSystem === "gamx" && !pointSetup.gamxType) {
+    return "Vel GAMX slag.";
+  }
+  return "";
+}
+
+function updatePointRequirement(input) {
+  const competition = qualificationData.find(
+    (item) => item.slug === addCompetitionState.competitionSlug,
+  );
+  if (!competition || !isPointCompetition(competition)) return;
+  const gender = input.dataset.pointRequirement;
+  if (!["men", "women"].includes(gender)) return;
+  competition.pointRequirements = normalizePointRequirements(competition.pointRequirements);
+  competition.pointRequirements[gender] = normalizeOptionalNumber(input.value);
+  renderCompetition();
+  renderChecker();
+}
+
+function renderPointCompetition(competition) {
+  const systemName = getCompetitionPointSystemDisplayName(competition);
+  const req = normalizePointRequirements(competition.pointRequirements);
+  elements.panel.innerHTML = `
+    <div class="competition-info">
+      <div>
+        <p class="eyebrow">${escapeHtml(competition.category || "Úttøkukrøv")} · Stig</p>
+        <h2>${escapeHtml(competition.name)}</h2>
+      </div>
+      <div class="point-system-pill">${escapeHtml(systemName)}</div>
+    </div>
+    <article class="table-card point-qualification-card">
+      <h3>Stigkrøv</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Menn</th><th>Kvinnur</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${formatPointRequirement(req.men)} stig</td>
+              <td>${formatPointRequirement(req.women)} stig</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+    ${renderUpdatedAtText(competition)}
+  `;
+}
+
+function renderPointCompetitionEditor(competition) {
+  const systemName = getCompetitionPointSystemDisplayName(competition);
+  const req = normalizePointRequirements(competition.pointRequirements);
+  return `
+    <section class="edit-competition active-edit-competition modal-edit-competition point-qualification-editor">
+      <header class="edit-competition-header compact-edit-header">
+        <div>
+          <span>${escapeHtml(competition.name)}</span>
+          <small>${escapeHtml(getCompetitionGroup(competition).label)} · Stig · ${escapeHtml(systemName)}</small>
+        </div>
+        ${renderCompetitionDisplayControls(competition)}
+      </header>
+      <article class="table-card point-qualification-card">
+        <h3>Stigkrøv</h3>
+        <div class="point-requirements-grid modal-point-grid">
+          <label>
+            Menn
+            <input type="text" inputmode="decimal" value="${escapeAttribute(formatPointRequirementInput(req.men))}" data-point-requirement="men" />
+          </label>
+          <label>
+            Kvinnur
+            <input type="text" inputmode="decimal" value="${escapeAttribute(formatPointRequirementInput(req.women))}" data-point-requirement="women" />
+          </label>
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function formatPointRequirement(value) {
+  return Number.isFinite(Number(value)) ? formatPointRequirementValue(Number(value)) : "—";
+}
+
+function isEffectivelyWholeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && Math.abs(number - Math.round(number)) < 0.0000001;
+}
+
+function formatPointRequirementValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  if (isEffectivelyWholeNumber(number)) {
+    return Math.round(number).toLocaleString("fo-FO", { maximumFractionDigits: 0 });
+  }
+  return number.toLocaleString("fo-FO", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
+function formatPointValue(value) {
+  return Number.isFinite(Number(value))
+    ? Number(value).toLocaleString("fo-FO", { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+    : "—";
+}
+
+function getCurrentTimestamp() {
+  return new Date().toISOString();
+}
+
+function isValidDateString(value) {
+  return Boolean(value) && !Number.isNaN(new Date(value).getTime());
+}
+
+function formatUpdatedDate(value) {
+  if (!isValidDateString(value)) return "";
+  return new Date(value).toLocaleDateString("fo-FO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function renderUpdatedAtText(competition) {
+  const date = formatUpdatedDate(competition?.updatedAt);
+  return date ? `<p class="competition-updated-at">Dagført: ${escapeHtml(date)}</p>` : "";
+}
+
+// Stig requirements use the same sign convention as Tvídystur: negative lowers the requirement, positive raises it.
+function adjustedPointRequirement(originalRequirement, adjustmentPercent) {
+  const requirement = Number(originalRequirement);
+  const adjustment = Number(adjustmentPercent);
+  if (!Number.isFinite(requirement)) return NaN;
+  if (!Number.isFinite(adjustment)) return requirement;
+  return requirement * (1 + adjustment / 100);
+}
+
+// Shared router for all point-based qualification systems. Calculation functions return a common result shape.
+function calculatePoints(input) {
+  switch (input.system) {
+    case "sinclair":
+      return calculateSinclair(input);
+    case "qpoints":
+      return calculateQPoints(input);
+    case "qmasters":
+      return calculateQMasters(input);
+    case "gamx":
+      return calculateGAMX(input);
+    default:
+      return { valid: false, points: null, system: input.system, displayName: "Ókend stigskipan", error: "Ókend stigskipan." };
+  }
+}
+
+function validatePointInputs({ gender, bodyweight, total }, displayName, system) {
+  if (!["men", "women"].includes(gender)) {
+    return { valid: false, points: null, system, displayName, error: `${displayName} krevur kyn.` };
+  }
+  if (!Number.isFinite(Number(bodyweight)) || Number(bodyweight) <= 0) {
+    return { valid: false, points: null, system, displayName, error: `${displayName} krevur kroppsvekt.` };
+  }
+  if (!Number.isFinite(Number(total)) || Number(total) < 0) {
+    return { valid: false, points: null, system, displayName, error: `${displayName} krevur samlað úrslit.` };
+  }
+  return null;
+}
+
+function calculateSinclair({ gender, bodyweight, total, sinclairCycle = DEFAULT_SINCLAIR_CYCLE }) {
+  const displayName = "Sinclair";
+  const invalid = validatePointInputs({ gender, bodyweight, total }, displayName, "sinclair");
+  if (invalid) return invalid;
+  const coefficients = SINCLAIR_COEFFICIENTS[sinclairCycle]?.[gender];
+  if (!coefficients || !Number.isFinite(coefficients.A) || !Number.isFinite(coefficients.B)) {
+    return { valid: false, points: null, system: "sinclair", displayName, error: "Sinclair útrokningardata er ikki tøkt." };
+  }
+  const bw = Number(bodyweight);
+  const coefficient = bw >= coefficients.B ? 1 : 10 ** (coefficients.A * (Math.log10(bw / coefficients.B) ** 2));
+  return { valid: true, points: Number(total) * coefficient, system: "sinclair", displayName };
+}
+
+function calculateQPoints({ gender, bodyweight, total }) {
+  const displayName = "Q-points";
+  const invalid = validatePointInputs({ gender, bodyweight, total }, displayName, "qpoints");
+  if (invalid) return invalid;
+  const rawBw = Number(bodyweight);
+  const bw = gender === "women" ? Math.max(rawBw, 41) : Math.max(rawBw, 50);
+  const scaled = bw / 100;
+  const denominator = gender === "women"
+    ? 266.5 - 19.44 * (scaled ** -2) + 18.61 * (scaled ** 2)
+    : 416.7 - 47.87 * (scaled ** -2) + 18.93 * (scaled ** 2);
+  const numerator = gender === "women" ? 306.54 : 463.26;
+  if (!Number.isFinite(denominator) || denominator <= 0) {
+    return { valid: false, points: null, system: "qpoints", displayName, error: "Q-points útrokning miseydnaðist fyri hesa kroppsvekt." };
+  }
+  return { valid: true, points: Number(total) * numerator / denominator, system: "qpoints", displayName };
+}
+
+function calculateQMasters({ gender, bodyweight, total, age }) {
+  const displayName = "Q-Masters";
+  const qPoints = calculateQPoints({ gender, bodyweight, total });
+  if (!qPoints.valid) return { ...qPoints, system: "qmasters", displayName };
+  const athleteAge = Number(age);
+  if (!Number.isFinite(athleteAge) || athleteAge < 35) {
+    return { valid: false, points: null, system: "qmasters", displayName, error: "Q-Masters krevur galdandi mastersaldur." };
+  }
+  const factor = QMASTERS_AGE_FACTORS[gender]?.[String(Math.floor(athleteAge))];
+  if (!Number.isFinite(Number(factor))) {
+    return { valid: false, points: null, system: "qmasters", displayName, error: "Q-Masters aldursfaktor-data er ikki tøkt." };
+  }
+  return { valid: true, points: qPoints.points * Number(factor), system: "qmasters", displayName };
+}
+
+// GAMX values are calculated locally from the official workbook parameters stored in gamx-data.js.
+function calculateGAMX({ gender, bodyweight, total, age, gamxType }) {
+  const type = gamxType || "gamx";
+  const displayName = getPointSystemDisplayNameFromValues("gamx", type);
+  const invalid = validatePointInputs({ gender, bodyweight, total }, displayName, "gamx");
+  if (invalid) return { ...invalid, gamxType: type };
+
+  const data = GAMX_DATA[type];
+  if (!data) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokningardata er ikki tøkt.` };
+  }
+
+  const params = getGAMXParameters({ type, data, gender, bodyweight, age, displayName });
+  if (!params.valid) return params;
+
+  const points = calculateGAMXFromParameters({ total: Number(total), ...params });
+  if (!Number.isFinite(points)) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokning miseydnaðist.` };
+  }
+  return { valid: true, points, system: "gamx", gamxType: type, displayName };
+}
+
+function getGAMXParameters({ type, data, gender, bodyweight, age, displayName }) {
+  const genderData = data.genders?.[gender];
+  if (!genderData) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokningardata manglar fyri hetta kynið.` };
+  }
+
+  const athleteAge = Number(age);
+  if (data.requiresAge && !Number.isFinite(athleteAge)) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} krevur aldur.` };
+  }
+
+  const bw = roundToGAMXStep(Number(bodyweight), genderData.step || 0.1);
+  if (bw < genderData.minBw || bw > genderData.maxBw) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokningardata er ikki tøkt fyri hesa kroppsvekt.` };
+  }
+
+  let rowIndex;
+  const bwIndex = Math.round((bw - genderData.minBw) / (genderData.step || 0.1));
+  if (data.requiresAge) {
+    const roundedAge = Math.floor(athleteAge);
+    if (roundedAge < genderData.minAge || roundedAge > genderData.maxAge) {
+      return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokningardata er ikki tøkt fyri hendan aldurin.` };
+    }
+    rowIndex = ((roundedAge - genderData.minAge) * genderData.bwCount + bwIndex) * 3;
+  } else {
+    rowIndex = bwIndex * 3;
+  }
+
+  const mu = Number(genderData.data?.[rowIndex]);
+  const sigma = Number(genderData.data?.[rowIndex + 1]);
+  const nu = Number(genderData.data?.[rowIndex + 2]);
+  if (![mu, sigma, nu].every(Number.isFinite) || mu <= 0 || sigma <= 0) {
+    return { valid: false, points: null, system: "gamx", gamxType: type, displayName, error: `${displayName} útrokningardata er ikki tøkt fyri hendan íðkaran.` };
+  }
+  return { valid: true, mu, sigma, nu };
+}
+
+function roundToGAMXStep(value, step = 0.1) {
+  return Math.round(value / step) * step;
+}
+
+function calculateGAMXFromParameters({ total, mu, sigma, nu }) {
+  const ratio = total / mu;
+  if (!Number.isFinite(ratio) || ratio <= 0) return NaN;
+  const z = nu !== 0
+    ? ((ratio ** nu) - 1) / (nu * sigma)
+    : Math.log(ratio) / sigma;
+  const lowerAdjustment = nu > 0 ? normalCdf(-1 / (sigma * Math.abs(nu))) : 0;
+  const denominator = normalCdf(1 / (sigma * Math.abs(nu)));
+  const probability = (normalCdf(z) - lowerAdjustment) / denominator;
+  return 1000 + 100 * inverseNormalCdf(clamp(probability, 1e-15, 1 - 1e-15));
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function normalCdf(value) {
+  return 0.5 * (1 + erf(value / Math.SQRT2));
+}
+
+function erf(value) {
+  // High-accuracy complementary-error-function expansion from Numerical Recipes.
+  // The older short approximation was close, but not accurate enough for GAMX
+  // values that are displayed to three decimals.
+  const coefficients = [
+    -1.3026537197817094,
+    0.6419697923564902,
+    0.019476473204185836,
+    -0.009561514786808631,
+    -0.000946595344482036,
+    0.000366839497852761,
+    0.000042523324806907,
+    -0.000020278578112534,
+    -0.000001624290004647,
+    0.00000130365583558,
+    0.000000015626441722,
+    -0.000000085238095915,
+    0.000000006529054439,
+    0.000000005059343495,
+    -0.000000000991364156,
+    -0.000000000227365122,
+    0.000000000096467911,
+    0.000000000002394038,
+    -0.000000000006886027,
+    0.000000000000894487,
+    0.000000000000313092,
+    -0.000000000000112708,
+    0.000000000000000381,
+    0.000000000000007106,
+    -0.000000000000001523,
+    -0.000000000000000094,
+    0.000000000000000121,
+    -0.000000000000000028,
+  ];
+  const isNegative = value < 0;
+  const x = Math.abs(value);
+  const t = 2 / (2 + x);
+  const ty = 4 * t - 2;
+  let d = 0;
+  let dd = 0;
+  for (let index = coefficients.length - 1; index > 0; index -= 1) {
+    const previousD = d;
+    d = ty * d - dd + coefficients[index];
+    dd = previousD;
+  }
+  const erfc = t * Math.exp(-x * x + 0.5 * (coefficients[0] + ty * d) - dd);
+  return isNegative ? erfc - 1 : 1 - erfc;
+}
+
+function inverseNormalCdf(probability) {
+  // Peter J. Acklam's rational approximation.
+  const p = clamp(probability, 1e-15, 1 - 1e-15);
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  const pLow = 0.02425;
+  const pHigh = 1 - pLow;
+  let q;
+  if (p < pLow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+  if (p <= pHigh) {
+    q = p - 0.5;
+    const r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+  q = Math.sqrt(-2 * Math.log(1 - p));
+  return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+    ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+}
+
+function checkPointQualification(athlete, competition) {
+  const pointResult = calculatePoints({
+    system: getNormalizedPointSystem(competition),
+    gamxType: getNormalizedGamxType(competition),
+    gender: athlete.gender,
+    bodyweight: athlete.bodyweight,
+    total: athlete.total,
+    age: athlete.age,
+    sinclairCycle: competition.sinclairCycle || DEFAULT_SINCLAIR_CYCLE,
+  });
+  const systemName = pointResult.displayName || getCompetitionPointSystemDisplayName(competition);
+  if (!pointResult.valid) {
+    return {
+      valid: false,
+      qualified: false,
+      canCalculate: false,
+      competition: competition.name,
+      slug: competition.slug,
+      group: getCompetitionGroup(competition),
+      category: competition.category,
+      qualificationType: "points",
+      pointSystemName: systemName,
+      error: pointResult.error,
+    };
+  }
+  const requiredPoints = normalizePointRequirements(competition.pointRequirements)[athlete.gender];
+  if (!Number.isFinite(Number(requiredPoints))) {
+    return {
+      valid: false,
+      qualified: false,
+      canCalculate: false,
+      competition: competition.name,
+      slug: competition.slug,
+      group: getCompetitionGroup(competition),
+      category: competition.category,
+      qualificationType: "points",
+      pointSystemName: systemName,
+      points: pointResult.points,
+      error: "Einki stigkrav er skrásett fyri hetta kynið.",
+    };
+  }
+  const adjustedRequiredPoints = adjustedPointRequirement(
+    requiredPoints,
+    getCompetitionAdjustmentPercent(competition),
+  );
+  const difference = pointResult.points - adjustedRequiredPoints;
+  return {
+    valid: true,
+    qualified: difference >= -POINT_COMPARISON_EPSILON,
+    canCalculate: true,
+    competition: competition.name,
+    slug: competition.slug,
+    group: getCompetitionGroup(competition),
+    category: competition.category,
+    qualificationType: "points",
+    pointSystemName: systemName,
+    points: pointResult.points,
+    requiredPoints: adjustedRequiredPoints,
+    originalRequiredPoints: Number(requiredPoints),
+    adjustmentPercent: getCompetitionAdjustmentPercent(competition),
+    difference,
+  };
+}
+
 function updateThreePercentRuleButton() {
   const control = elements.threePercentRule?.closest(".rule-toggle");
   if (!control) return;
@@ -2652,6 +3598,13 @@ function updateThreePercentRuleButton() {
 }
 
 function renderChecker() {
+  const dataStatusMessage = getDataStatusMessage();
+  if (!qualificationData.length) {
+    elements.checkerSummary.innerHTML = "";
+    elements.checkerResults.innerHTML = dataStatusMessage ? renderDataStatusCard(dataStatusMessage) : "";
+    return;
+  }
+
   const gender = elements.gender.value;
   const key = gender === "women" ? "women" : "men";
   const birthYear = Number(elements.birthYear.value);
@@ -2675,6 +3628,10 @@ function renderChecker() {
   const checkedRows = qualificationData.flatMap((competition) => {
     const competitionAge = getAthleteAgeForCompetition(competition, birthYear);
     if (!isCompetitionAgeEligible(competition, competitionAge)) return [];
+
+    if (isPointCompetition(competition)) {
+      return [checkPointQualification({ gender: key, bodyweight, total, age: competitionAge }, competition)];
+    }
 
     const competitionClasses = uniqueWeightClasses(
       (competition[key] || []).map((row) => getWeightClassKey(row)),
@@ -2705,6 +3662,7 @@ function renderChecker() {
           slug: competition.slug,
           group: getCompetitionGroup(competition),
           category: competition.category,
+          qualificationType: "total",
           competitionYear: getCompetitionYear(competition),
           competitionAge,
           ageLabel: isMastersCompetition(competition)
@@ -2724,13 +3682,18 @@ function renderChecker() {
       });
   });
 
-  const qualifiedRows = selectBestQualifiedRows(
-    checkedRows.filter((item) => item.qualified),
-  ).sort((a, b) => {
+  const calculableRows = checkedRows.filter((item) => item.canCalculate !== false);
+  const qualifiedRows = [
+    ...selectBestQualifiedRows(
+      calculableRows.filter((item) => item.qualificationType !== "points" && item.qualified),
+    ),
+    ...calculableRows.filter((item) => item.qualificationType === "points" && item.qualified),
+  ].sort((a, b) => {
     const groupDiff = a.group.order - b.group.order;
     if (groupDiff !== 0) return groupDiff;
     const competitionDiff = competitionOrder(a.slug) - competitionOrder(b.slug);
     if (competitionDiff !== 0) return competitionDiff;
+    if (a.qualificationType === "points" || b.qualificationType === "points") return 0;
     const ageDiff = (a.row.ageMin ?? 0) - (b.row.ageMin ?? 0);
     if (ageDiff !== 0) return ageDiff;
     const classDiff = weightClassSort(
@@ -2754,22 +3717,23 @@ function renderChecker() {
   }
 
   const groupedResults = groupQualifiedRows(qualifiedRows);
+  const allGroups = groupedResults;
   if (
     activeResultsGroup !== "all" &&
-    !groupedResults.some((group) => group.key === activeResultsGroup)
+    !allGroups.some((group) => group.key === activeResultsGroup)
   ) {
     activeResultsGroup = "all";
   }
 
-  const visibleGroups =
+  const visibleQualifiedGroups =
     activeResultsGroup === "all"
       ? groupedResults
       : groupedResults.filter((group) => group.key === activeResultsGroup);
 
   elements.checkerResults.innerHTML = `
-    ${renderResultsTabs(groupedResults, activeResultsGroup)}
+    ${renderResultsTabs(allGroups, activeResultsGroup)}
     <div class="qualified-groups">
-      ${visibleGroups.map((group) => renderQualifiedGroup(group, total)).join("")}
+      ${visibleQualifiedGroups.map((group) => renderQualifiedGroup(group, total)).join("")}
     </div>
   `;
 
@@ -2895,6 +3859,10 @@ function renderQualifiedGroup(group, total) {
 }
 
 function renderQualifiedCompetition(competition, total) {
+  if (competition.rows.some((item) => item.qualificationType === "points")) {
+    return renderQualifiedPointCompetition(competition);
+  }
+
   const showAgeColumn = competition.rows.some((item) => item.row.ageGroup);
 
   return `
@@ -2937,6 +3905,43 @@ function renderQualifiedCompetition(competition, total) {
   `;
 }
 
+
+function renderQualifiedPointCompetition(competition) {
+  const row = competition.rows[0];
+  const differenceClass = row.difference >= 0 ? "margin-positive" : "margin-negative";
+  const differencePrefix = row.difference >= 0 ? "+" : "";
+  return `
+    <article class="qualified-card point-result-card">
+      <div class="qualified-card-header">
+        <h4>${escapeHtml(competition.name)}</h4>
+        <span>1 krav</span>
+      </div>
+      <div class="qualified-table-wrap">
+        <table class="qualified-table">
+          <thead>
+            <tr>
+              <th>Stigskipan</th>
+              <th>Krav</th>
+              <th>Úrslit</th>
+              <th>Munur</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${escapeHtml(row.pointSystemName)}</td>
+              <td>${formatPointRequirementValue(row.requiredPoints)} stig</td>
+              <td>${formatPointValue(row.points)} stig</td>
+              <td class="${differenceClass}">${differencePrefix}${formatPointValue(row.difference)} stig</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `;
+}
+
+
+
 function getAchievedRequirement(item) {
   if (item.activeRequirement) return item.activeRequirement;
   return getVisibleRequirementVariantsForCompetition(item)[0];
@@ -2949,10 +3954,7 @@ function getResultRequirementLevelLabel(row) {
 function getCompetitionGroup(competitionOrSlug) {
   const competition =
     typeof competitionOrSlug === "string"
-      ? qualificationData.find((item) => item.slug === competitionOrSlug) ||
-        DEFAULT_QUALIFICATION_DATA.find(
-          (item) => item.slug === competitionOrSlug,
-        )
+      ? qualificationData.find((item) => item.slug === competitionOrSlug)
       : competitionOrSlug;
 
   if (competition) {
@@ -2978,8 +3980,6 @@ function competitionOrder(slug) {
     Array.isArray(qualificationData)
   )
     sources.push(...qualificationData);
-  if (Array.isArray(DEFAULT_QUALIFICATION_DATA))
-    sources.push(...DEFAULT_QUALIFICATION_DATA);
   const competition = sources.find((item) => item.slug === slug);
   if (competition && Number.isFinite(Number(competition.order)))
     return Number(competition.order);
@@ -3029,11 +4029,14 @@ function isCompetitionAgeEligible(competitionOrSlug, age) {
       ? qualificationData.find((item) => item.slug === competitionOrSlug)
       : competitionOrSlug;
 
+  if (isCompetitionAgeSpecificPointSystem(competition)) {
+    return true;
+  }
+
   if (isMastersCompetition(competition)) {
-    return Array.isArray(competition?.men) || Array.isArray(competition?.women)
-      ? [...(competition.men || []), ...(competition.women || [])].some((row) =>
-          rowAgeGroupMatches(row, age),
-        )
+    const masterRows = [...(competition?.men || []), ...(competition?.women || [])];
+    return masterRows.length
+      ? masterRows.some((row) => rowAgeGroupMatches(row, age))
       : age >= 35;
   }
 
@@ -3184,20 +4187,42 @@ function openAddCompetitionDialog(
       competitionToEdit?.competitionYear || QUALIFICATION_YEAR;
   }
 
-  const typeChoice = competitionToEdit
-    ? getCompetitionTypeChoice(competitionToEdit)
+  const qualificationType = competitionToEdit
+    ? getQualificationType(competitionToEdit)
+    : DEFAULT_QUALIFICATION_TYPE;
+  const preservedTotalCompetition = competitionToEdit
+    ? createCompetitionWithPreservedTotalSetup(competitionToEdit)
+    : null;
+  setSingleChoice(elements.qualificationTypeChoices, qualificationType);
+  setSingleChoice(
+    elements.pointSystemChoices,
+    getPointSystemChoiceValue(competitionToEdit || { pointSystem: DEFAULT_POINT_SYSTEM }),
+  );
+  if (elements.pointRequirementMen) {
+    elements.pointRequirementMen.value = formatPointRequirementInput(competitionToEdit?.pointRequirements?.men);
+    elements.pointRequirementMen.setAttribute("data-point-requirement", "men");
+  }
+  if (elements.pointRequirementWomen) {
+    elements.pointRequirementWomen.value = formatPointRequirementInput(competitionToEdit?.pointRequirements?.women);
+    elements.pointRequirementWomen.setAttribute("data-point-requirement", "women");
+  }
+  updateQualificationTypeVisibility();
+
+  const typeChoice = preservedTotalCompetition
+    ? getCompetitionTypeChoice(preservedTotalCompetition)
     : "senior";
   setSingleChoice(elements.competitionTypeChoices, typeChoice);
   setRequirementLevels(
-    competitionToEdit
-      ? getRequirementTitles(competitionToEdit)
+    preservedTotalCompetition
+      ? getRequirementTitles(preservedTotalCompetition)
       : ["Úttøkukrav"],
   );
   renderMastersAgeChoices(
-    competitionToEdit ? getMastersAgeGroups(competitionToEdit) : null,
+    preservedTotalCompetition ? getMastersAgeGroups(preservedTotalCompetition) : null,
   );
   updateMastersAgeVisibility();
   renderEditCompetitionTotalsEditor();
+  updateQualificationTypeVisibility();
   elements.addCompetitionDialog.showModal();
 }
 
@@ -3231,10 +4256,36 @@ function renderMastersAgeChoices(selectedGroups = null) {
 
 function updateMastersAgeVisibility() {
   const type = getActiveChoice(elements.competitionTypeChoices) || "senior";
+  const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
+  const pointSystemChoice = getActiveChoice(elements.pointSystemChoices) || DEFAULT_POINT_SYSTEM;
   elements.mastersAgeChoicesPanel.classList.toggle(
     "is-hidden",
-    type !== "masters",
+    qualificationType === "points" || isAgeSpecificPointSystemChoice(pointSystemChoice) || type !== "masters",
   );
+}
+
+function updateQualificationTypeVisibility() {
+  const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
+  const isPoints = qualificationType === "points";
+  const pointSystemChoice = getActiveChoice(elements.pointSystemChoices) || DEFAULT_POINT_SYSTEM;
+  const isAgeSpecificPointSystem = isPoints && isAgeSpecificPointSystemChoice(pointSystemChoice);
+
+  elements.totalQualificationFields?.classList.toggle("is-hidden", isPoints);
+  elements.pointQualificationFields?.classList.toggle("is-hidden", !isPoints);
+  elements.competitionTypeSection?.classList.toggle("is-hidden", isAgeSpecificPointSystem);
+
+  if (elements.editCompetitionTotalsPanel) {
+    elements.editCompetitionTotalsPanel.classList.toggle("is-hidden", isPoints);
+  }
+
+  // When the user switches between Tvídystur and Stig inside the edit dialog,
+  // the inactive setup is preserved in the competition data. The visible editor
+  // must be rebuilt from that preserved data when switching back to Tvídystur.
+  renderEditCompetitionTotalsEditor();
+  renderPointCompetitionAdjustmentSlot(
+    qualificationData.find((item) => item.slug === addCompetitionState.competitionSlug),
+  );
+  updateMastersAgeVisibility();
 }
 
 function setSingleChoice(container, value) {
@@ -3245,6 +4296,61 @@ function setSingleChoice(container, value) {
 
 function getActiveChoice(container) {
   return container.querySelector(".choice-button.active")?.dataset.value || "";
+}
+
+// Preserve inactive Tvídystur setup when a competition is temporarily edited as Stig.
+function createTotalQualificationBackup(competition) {
+  if (!competition) return null;
+  return {
+    type: competition.type,
+    ageRule: deepClone(competition.ageRule),
+    displayOptions: deepClone(competition.displayOptions),
+    men: deepClone(Array.isArray(competition.men) ? competition.men : []),
+    women: deepClone(Array.isArray(competition.women) ? competition.women : []),
+  };
+}
+
+function getTotalQualificationBackup(competition) {
+  const backup = competition?.totalQualificationBackup;
+  if (!backup || typeof backup !== "object") return null;
+  return {
+    type: backup.type,
+    ageRule: deepClone(backup.ageRule),
+    displayOptions: deepClone(backup.displayOptions),
+    men: deepClone(Array.isArray(backup.men) ? backup.men : []),
+    women: deepClone(Array.isArray(backup.women) ? backup.women : []),
+  };
+}
+
+function getPreservedTotalQualificationSetup(competition) {
+  const backup = getTotalQualificationBackup(competition);
+  const menRows = Array.isArray(competition?.men) ? competition.men : [];
+  const womenRows = Array.isArray(competition?.women) ? competition.women : [];
+  const hasLiveTotalRows = menRows.length || womenRows.length;
+
+  return {
+    type: backup?.type || competition?.type || "standard",
+    ageRule: deepClone(backup?.ageRule || competition?.ageRule || AGE_PRESETS.senior),
+    displayOptions: deepClone(
+      backup?.displayOptions || competition?.displayOptions || { active: "original" },
+    ),
+    men: deepClone(backup?.men?.length || !hasLiveTotalRows ? backup?.men || menRows : menRows),
+    women: deepClone(backup?.women?.length || !hasLiveTotalRows ? backup?.women || womenRows : womenRows),
+  };
+}
+
+function createCompetitionWithPreservedTotalSetup(competition) {
+  if (!competition) return null;
+  const totalSetup = getPreservedTotalQualificationSetup(competition);
+  return {
+    ...competition,
+    qualificationType: "total",
+    type: totalSetup.type,
+    ageRule: totalSetup.ageRule,
+    displayOptions: totalSetup.displayOptions,
+    men: totalSetup.men,
+    women: totalSetup.women,
+  };
 }
 
 function setRequirementLevels(levels) {
@@ -3350,13 +4456,14 @@ function syncEditModalRequirementLevels() {
     : competition.type || "standard";
   const mastersAgeGroups =
     competitionType === "masters" ? getMastersAgeGroups(competition) : [];
+  const defaultWeightClasses = getDefaultWeightClassesForCompetition(competition);
   const menClasses = uniqueWeightClasses(
     (competition.men || []).map((row) => row.weightClass),
-    ["60", "65", "71", "79", "88", "94", "110", "110+"],
+    defaultWeightClasses.men,
   );
   const womenClasses = uniqueWeightClasses(
     (competition.women || []).map((row) => row.weightClass),
-    ["48", "53", "58", "63", "69", "77", "86", "86+"],
+    defaultWeightClasses.women,
   );
 
   competition.men = rebuildRowsForEditSave(
@@ -3585,6 +4692,8 @@ function createCompetitionFromDialog() {
           competition.slug === addCompetitionState.competitionSlug,
       )
     : null;
+  const shouldUpdateTimestamp = !isEditMode || hasUnsavedCompetitionChanges();
+  const savedAt = shouldUpdateTimestamp ? getCurrentTimestamp() : existingCompetition?.updatedAt || "";
   let group = null;
 
   if (isNewGroup) {
@@ -3623,17 +4732,31 @@ function createCompetitionFromDialog() {
     return;
   }
 
+  const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
+  const isPointBased = qualificationType === "points";
+  const pointSetup = getPointSetupFromDialog();
+  if (isPointBased) {
+    const validationError = validatePointCompetitionSetup(pointSetup);
+    if (validationError) {
+      window.alert(validationError);
+      return;
+    }
+  }
+
   const competitionYear =
     elements.newCompetitionYear &&
     Number.isFinite(Number(elements.newCompetitionYear.value))
       ? Math.round(Number(elements.newCompetitionYear.value))
       : QUALIFICATION_YEAR;
-  const typeChoice =
-    getActiveChoice(elements.competitionTypeChoices) || "senior";
+  const selectedPointSystemChoice = pointSetup.pointSystem === "gamx" ? pointSetup.gamxType : pointSetup.pointSystem;
+  const pointSystemControlsAge = isPointBased && isAgeSpecificPointSystemChoice(selectedPointSystemChoice);
+  const typeChoice = pointSystemControlsAge
+    ? "open"
+    : getActiveChoice(elements.competitionTypeChoices) || "senior";
   const typePreset =
     ADD_COMPETITION_TYPES[typeChoice] || ADD_COMPETITION_TYPES.senior;
-  const competitionType = typePreset.type;
-  const ageCategoryChoice = typePreset.ageCategory || "senior";
+  const competitionType = pointSystemControlsAge ? "standard" : typePreset.type;
+  const ageCategoryChoice = pointSystemControlsAge ? "open" : typePreset.ageCategory || "senior";
   const levels = getSelectedRequirementLevels();
   const mastersAgeGroups =
     competitionType === "masters" ? getSelectedMastersAgeGroups() : [];
@@ -3664,24 +4787,15 @@ function createCompetitionFromDialog() {
       : getCompetitionRulePercent(existingCompetition)
     : DEFAULT_COMPETITION_RULE_PERCENT;
 
-  const reference =
-    existingCompetition ||
-    qualificationData.find(
-      (competition) =>
-        competition.groupKey === group.key &&
-        competition.type === competitionType,
-    ) ||
-    qualificationData.find(
-      (competition) => competition.groupKey === group.key,
-    ) ||
-    qualificationData[0];
+  const defaultWeightClasses = getDefaultWeightClassesForAgeCategory(ageCategoryChoice);
+  const reference = existingCompetition || null;
   const menClasses = uniqueWeightClasses(
     reference?.men?.map((row) => row.weightClass),
-    ["60", "65", "71", "79", "88", "94", "110", "110+"],
+    defaultWeightClasses.men,
   );
   const womenClasses = uniqueWeightClasses(
     reference?.women?.map((row) => row.weightClass),
-    ["48", "53", "58", "63", "69", "77", "86", "86+"],
+    defaultWeightClasses.women,
   );
   const orderBase = qualificationData.length
     ? Math.max(...qualificationData.map((item) => Number(item.order) || 0)) + 1
@@ -3692,11 +4806,52 @@ function createCompetitionFromDialog() {
       : { ...(AGE_PRESETS[ageCategoryChoice] || AGE_PRESETS.senior) };
 
   if (isEditMode && existingCompetition) {
+    const totalSourceCompetition =
+      createCompetitionWithPreservedTotalSetup(existingCompetition) || existingCompetition;
+    const currentTotalBackup = createTotalQualificationBackup(totalSourceCompetition);
+    const restoredType = isPointBased
+      ? totalSourceCompetition.type || competitionType
+      : competitionType;
+    const restoredAgeRule = isPointBased
+      ? totalSourceCompetition.ageRule || ageRule
+      : ageRule;
+    const restoredDisplayOptions = isPointBased
+      ? totalSourceCompetition.displayOptions || existingCompetition.displayOptions
+      : existingCompetition.displayOptions;
+    const restoredMenRows = isPointBased
+      ? deepClone(totalSourceCompetition.men || [])
+      : rebuildRowsForEditSave(
+          totalSourceCompetition,
+          "men",
+          competitionType,
+          menClasses,
+          levels,
+          mastersAgeGroups,
+        );
+    const restoredWomenRows = isPointBased
+      ? deepClone(totalSourceCompetition.women || [])
+      : rebuildRowsForEditSave(
+          totalSourceCompetition,
+          "women",
+          competitionType,
+          womenClasses,
+          levels,
+          mastersAgeGroups,
+        );
+    const updatedTotalBackup = createTotalQualificationBackup({
+      ...totalSourceCompetition,
+      type: restoredType,
+      ageRule: restoredAgeRule,
+      displayOptions: restoredDisplayOptions,
+      men: restoredMenRows,
+      women: restoredWomenRows,
+    });
     const updatedCompetition = {
       ...existingCompetition,
       name: competitionName,
+      updatedAt: savedAt,
       category:
-        competitionType === "masters"
+        restoredType === "masters"
           ? `${group.label} · Masters`
           : group.label,
       groupKey: group.key,
@@ -3704,26 +4859,19 @@ function createCompetitionFromDialog() {
       groupLabel: group.label,
       groupOrder: group.order,
       competitionYear,
-      type: competitionType,
-      ageRule,
+      type: restoredType,
+      ageRule: isPointBased ? ageRule : restoredAgeRule,
+      qualificationType,
+      pointSystem: isPointBased ? pointSetup.pointSystem : existingCompetition.pointSystem,
+      gamxType: isPointBased ? pointSetup.gamxType : existingCompetition.gamxType,
+      sinclairCycle: isPointBased ? pointSetup.sinclairCycle : existingCompetition.sinclairCycle,
+      pointRequirements: isPointBased ? pointSetup.pointRequirements : existingCompetition.pointRequirements,
       adjustmentPercent,
       rulePercent,
-      men: rebuildRowsForEditSave(
-        existingCompetition,
-        "men",
-        competitionType,
-        menClasses,
-        levels,
-        mastersAgeGroups,
-      ),
-      women: rebuildRowsForEditSave(
-        existingCompetition,
-        "women",
-        competitionType,
-        womenClasses,
-        levels,
-        mastersAgeGroups,
-      ),
+      displayOptions: restoredDisplayOptions,
+      totalQualificationBackup: updatedTotalBackup || undefined,
+      men: restoredMenRows,
+      women: restoredWomenRows,
     };
 
     qualificationData = normalizeQualificationData(
@@ -3741,6 +4889,7 @@ function createCompetitionFromDialog() {
     const newCompetition = {
       name: competitionName,
       slug: uniqueSlug(`${group.shortLabel}-${competitionName}`),
+      updatedAt: savedAt,
       category:
         competitionType === "masters"
           ? `${group.label} · Masters`
@@ -3753,15 +4902,18 @@ function createCompetitionFromDialog() {
       order: orderBase,
       type: competitionType,
       ageRule,
+      qualificationType,
+      pointSystem: isPointBased ? pointSetup.pointSystem : DEFAULT_POINT_SYSTEM,
+      gamxType: isPointBased ? pointSetup.gamxType : "",
+      sinclairCycle: DEFAULT_SINCLAIR_CYCLE,
+      pointRequirements: isPointBased ? pointSetup.pointRequirements : { men: null, women: null },
       adjustmentPercent: 0,
       rulePercent,
       displayOptions: { active: "original" },
-      men:
-        competitionType === "masters"
+      men: competitionType === "masters"
           ? buildMastersRows(menClasses, levels, mastersAgeGroups)
           : buildRows(menClasses, levels),
-      women:
-        competitionType === "masters"
+      women: competitionType === "masters"
           ? buildMastersRows(womenClasses, levels, mastersAgeGroups)
           : buildRows(womenClasses, levels),
     };
