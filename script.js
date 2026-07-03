@@ -459,7 +459,12 @@ const elements = {
   authError: document.getElementById("authError"),
   authSubmitButton: document.getElementById("authSubmitButton"),
   footerVersion: document.getElementById("footerVersion"),
+  copyrightYear: document.getElementById("copyrightYear"),
 };
+
+if (elements.copyrightYear) {
+  elements.copyrightYear.textContent = String(new Date().getFullYear());
+}
 
 init();
 
