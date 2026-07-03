@@ -3841,3 +3841,31 @@ tbody tr:hover {
     padding-bottom: 2px;
   }
 }
+
+/* Mobile competition-edit modal stack fix
+   The edit-competition view uses the same add-competition form but can keep
+   desktop grid columns from earlier rules. On mobile, force every setup row in
+   that modal to become a single vertical stack. */
+@media (max-width: 900px) {
+  .settings-dialog.add-dialog.wide .add-competition-modal .competition-setup-row,
+  .settings-dialog.add-dialog.wide .add-competition-modal .choice-pair-row,
+  .settings-dialog.add-dialog.wide .add-competition-modal .total-age-requirement-row,
+  .settings-dialog.add-dialog.wide .add-competition-modal .point-age-system-row,
+  .settings-dialog.add-dialog.wide .add-competition-modal .point-requirements-grid,
+  .settings-dialog.add-dialog.wide .add-competition-modal .adjustment-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-dialog.add-dialog.wide .add-competition-modal .choice-section,
+  .settings-dialog.add-dialog.wide .add-competition-modal #pointCompetitionTypeSlot,
+  .settings-dialog.add-dialog.wide .add-competition-modal #pointRequirementLevelSlot,
+  .settings-dialog.add-dialog.wide .add-competition-modal #pointCompetitionTypeSlot > .choice-section,
+  .settings-dialog.add-dialog.wide .add-competition-modal #pointRequirementLevelSlot > .choice-section,
+  .settings-dialog.add-dialog.wide .add-competition-modal .point-system-section,
+  .settings-dialog.add-dialog.wide .add-competition-modal .kravstig-section {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
