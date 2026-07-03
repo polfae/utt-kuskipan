@@ -1,0 +1,634 @@
+VEGLEIÐING TIL ÚTTØKUKRAV-SKIPANINA
+===================================
+
+Hendan vegleiðingin greiðir frá, hvussu úttøkukrav-skipanin verður brúkt.
+
+Skipanin hevur tveir høvuðspartar:
+
+1. Almenna síðan
+   Hetta er síðan, sum íðkarar, venjarar og onnur kunnu brúka.
+
+2. Innstillingar
+   Hetta er umsitingarparturin, har bólkar, kappingar, úttøkukrøv, stigskipanir, prosentreglur, tíðarskeið og backup verða umsitin.
+
+
+ALMENNA SÍÐAN
+=============
+
+Almenna síðan hevur tvær ymiskar funkur:
+
+1. Úttøkukanning
+2. Kappingaryvirlit
+
+
+1. ÚTTØKUKANNING
+================
+
+Úttøkukanningin verður brúkt til at kanna, um eitt úrslit hjá einum íðkara er nóg gott til at klára úttøkukrøvini til eina ella fleiri kappingar.
+
+Her skrivar brúkarin upplýsingar um íðkaran, og skipanin samanber hesar upplýsingar við úttøkukrøvini í teimum ymisku kappingunum.
+
+Brúkarin skal skriva:
+
+- Føðiár
+- Kroppsvekt
+- Samlað úrslit
+
+Út frá hesum upplýsingunum kann skipanin kanna, hvørjar kappingar íðkarin er førur fyri at luttaka í, og um úrslitið er nóg gott til eitt ella fleiri kravstig.
+
+
+Hvussu úttøkukanningin virkar fyri tvídystar kappingar
+---------------------------------------------------------------
+
+Ein tvídysta kapping er ein kapping, har úttøkukravið er eitt samlað úrslit í kilo.
+
+Tá skipanin kannar eina tvídystar kapping, hyggur hon eftir:
+
+- føðiárinum hjá íðkaranum
+- kroppsvektini hjá íðkaranum
+- samlaða úrslitinum hjá íðkaranum
+- úttøkukrøvunum í kappingini
+
+Fyrst kannar skipanin, um íðkarin er í einum aldri til at luttaka í kappingini.
+
+Síðani brúkar skipanin kroppsvektina til at finna tann vektflokk, sum íðkarin hoyrir til ella kann samanberast við.
+
+Tá rætti vektflokkurin er funnin, samanber skipanin samlaða úrslitið hjá íðkaranum við úttøkukrøvini í tí vektflokkinum.
+
+Um kappingin hevur fleiri kravstig, til dømis A, B, C og Minimum krav, kannar skipanin, hvørji av hesum krøvunum íðkarin klárar.
+
+
+
+Hvussu úttøkukanningin virkar fyri stig kappingar
+----------------------------------------------------------
+
+Ein stig kapping er ein kapping, har úttøkukravið er grundað á stig heldur enn kilo.
+
+Tá skipanin kannar eina stig kapping, brúkar hon upplýsingarnar hjá íðkaranum til at rokna eitt stigatal.
+
+Skipanin tekur hædd fyri:
+
+- føðiárinum hjá íðkaranum
+- kroppsvektini hjá íðkaranum
+- samlaða úrslitinum hjá íðkaranum
+- valdu stigskipanini í kappingini
+
+Skipanin kannar eisini, um íðkarin er í rættum aldri til at luttaka í kappingini.
+
+Um íðkarin ikki er førur fyri at luttaka í kappingini út frá aldri, verður kappingin ikki víst sum ein kapping, ið íðkarin hevur klárað, sjálvt um stigini annars høvdu verið nóg góð.
+
+Fyri stig kappingar samanber skipanin útroknaðu stigini við stigkrøvini í kappingini.
+
+Um kappingin hevur fleiri kravstig, til dømis A, B, C og Minimum krav, kannar skipanin, hvørji av hesum stigkrøvunum íðkarin klárar.
+
+Dømi:
+
+- Skipanin roknar stigini hjá íðkaranum.
+- Skipanin kannar, um íðkarin er í rættum aldri til kappingina.
+- Stigini verða samanborin við A, B, C og/ella Minimum krav.
+- Skipanin vísir bert kappingar, sum íðkarin bæði er førur fyri at luttaka í og hevur klárað krøvini til.
+
+
+Úrslitið í úttøkukanningini
+--------------------------
+
+Tá brúkarin hevur skrivað upplýsingarnar, vísir skipanin, hvørjar kappingar íðkarin hevur klárað krøvini til.
+
+Fyri tvídystar kappingar verður úrslitið grundað á kilo.
+
+Fyri stig kappingar verður úrslitið grundað á stig.
+
+Skipanin vísir bert tey kravstig, sum íðkarin hevur klára.
+
+
+2. KAPPINGARYVIRLIT
+===================
+
+Kappingaryvirlitið er ein onnur funka á almennu síðuni.
+
+Her kann brúkarin síggja úttøkukrøvini til allar kappingar, uttan at skriva upplýsingar um ein íðkara.
+
+Í kappingaryvirlitinum kann brúkarin:
+
+- velja eina kapping
+- síggja úttøkukrøvini fyri menn og kvinnur til kappingina
+- síggja kravstigini, sum eru galdandi fyri kappingina
+
+
+
+Kappingaryvirlit fyri tvídystar kappingar
+--------------------------------------------------
+
+Fyri tvídystar kappingar vísir kappingaryvirlitið krøv í kilo.
+
+Talvurnar vísa:
+
+- Vektflokk
+- Kravstig
+- Krav
+
+Um fleiri kravstig eru vald, verða tey víst í kappingaryvirlitinum.
+
+
+Kappingaryvirlit fyri stig kappingar
+---------------------------------------------
+
+Fyri stig kappingar vísir kappingaryvirlitið stigkrøv.
+
+Stig kappingar vísa kravstig í hesari raðfylgju:
+
+1. A
+2. B
+3. C
+4. Minimum krav
+
+Bert tey kravstig, sum eru vald fyri kappingina, verða víst.
+
+
+INNSTILLINGAR
+=============
+
+Innstillingarnar eru umsitingarsíðan av skipanini.
+
+Her ber til at:
+
+- stovna bólkar
+- broyta bólkar
+- strika bólkar
+- stovna kappingar
+- broyta kappingar
+- strika kappingar
+- leggja úttøkukrøv inn
+- broyta úttøkukrøv
+- velja stigskipanir
+- seta úttøkutíðarskeið
+- brúka ávirkan á krøv
+- brúka prosent reglu
+- taka backup
+- lesa backup inn aftur
+
+
+BÓLKAR
+======
+
+Bólkar verða brúktir til at skipa kappingarnar.
+
+Ein bólkur kann til dømis vera:
+
+- Heimsmeistaraheiti
+- Evropameistaraheiti
+
+Bólkar gera tað lættari at halda skil á kappingunum, serliga um skipanin hevur nógvar kappingar.
+
+
+Stovna bólk
+-----------
+
+Fyri at stovna ein bólk:
+
+1. Far í innstillingar.
+2. Vel møguleikan at stovna nýggjan bólk.
+3. Skriva heiti á bólkinum.
+4. Skriva stutt heiti á bólkinum
+5. Skriva navnið á fyrstu kappingini í bólkinum
+6. Skriva kappingarárið fyri kappingina
+7. Vel slav av úttøkukravi
+8. Vel úttøkutíðarskeið, um tað er eitt.
+9. Vel Aldursbólk fyri kappingina.
+10. Vel hvussu nógv kravstig eru fyri kappingina.
+11. Stovna bólkin og kappingina.
+
+Tá bólkurin er stovnaður, ber til at leggja fleiri kappingar inn undir bólkin.
+
+
+Broyta bólk
+-----------
+
+Um innihaldi á einum bólki skal broytast:
+
+1. Far í innstillingar.
+2. Finn bólkin.
+3. Trýst á broyt knøttin.
+4. Broyt upplýsingarnar.
+5. Goym broytingarnar.
+
+
+Strika bólk
+-----------
+
+Ein bólkur kann strikast, um hann ikki longur skal brúkast.
+
+Ver varin við at strika bólkar.
+
+Áðrenn ein bólkur verður strikaður, eigur tú at kanna, um kappingar eru knýttar at bólkinum.
+
+Um ein bólkur verður strikaður, kann tað ávirka kappingarnar, sum hoyra til bólkin.
+
+
+KAPPINGAR
+=========
+
+Kappingar eru sjálv úttøkukrøvini, sum brúkarin sær á almennu síðuni.
+
+Ein kapping kann vera grunda á ein tvídyst ella á stig.
+
+
+Stovna kapping
+--------------
+
+Fyri at stovna eina kapping:
+
+1. Far í innstillingar.
+2. Vel bólkin, sum kappingin skal hoyra til.
+3. Vel at stovna nýggja kapping.
+4. Skriva navnið á fyrstu kappingini í bólkinum
+5. Skriva kappingarárið fyri kappingina
+6. Vel slav av úttøkukravi
+7. Vel úttøkutíðarskeið, um tað er eitt.
+8. Vel Aldursbólk fyri kappingina.
+9. Vel hvussu nógv kravstig eru fyri kappingina.
+10. Stovna kappingina.
+
+
+Broyta kapping
+--------------
+
+Fyri at broyta eina kapping:
+
+1. Far í innstillingar.
+2. Vel kappingina.
+3. Ger neyðugu broytingarnar.
+4. Trýst á Goym broytingar.
+
+Tað ber til at broyta eina kapping frá at vera ein tvídystar kapping til eina stig kapping, ella øvugt.
+
+Tá hetta verður gjørt, skal man kanna, at krøvini framvegis eru røtt og at rætta slagið av krøvum verður brúkt.
+
+
+Strika kapping
+--------------
+
+Fyri at strika eina kapping:
+
+1. Far inn í kappingina í innstillingunum.
+2. Trýst á Strika.
+3. Vátta, um skipanin biður um váttan.
+
+Ver varin við hesum, tí kappingin verður strikað úr skipanini.
+
+
+GRUNDUPPLÝSINGAR UM KAPPING
+===========================
+
+Inni á einari kapping í innstillingunum eru fleiri felt og knappar.
+
+
+Kappingarheiti
+--------------
+
+Hetta er navnið á kappingini.
+
+Hetta navnið verður víst á almennu síðuni.
+
+
+Kappingarár
+-----------
+
+Hetta er árið, sum kappingin hoyrir til.
+
+Kappingarárið verður brúkt til at vísa og skipa kappingina rætt.
+
+
+Slag av úttøkukravi
+-------------------
+
+Her velur tú, um kappingin skal vera:
+
+- Tvídystur
+- Stig
+
+Tvídystur verður brúkt, tá krøvini eru í kilo.
+
+Stig verður brúkt, tá krøvini eru í stigum.
+
+
+Úttøkutíðarskeið
+----------------
+
+Úttøkutíðarskeiðið sigur, í hvørjum tíðarskeiðið tað er møguligt at gera eitt krav til kappingina.
+
+Tú kanst seta:
+
+- Byrjannar dagfesting
+- Edaliga dagfesting
+
+Um kappingin ikki skal hava úttøkutíðarskeið, kann tíðarskeiðið strikast við Strika tíðarskeið knøttinum.
+
+
+Kravstig
+--------
+
+Kravstigini siga, hvørji sløg av krøvum kappingin skal hava.
+
+Tú kanst velja:
+
+- Minimum krav
+- A
+- B
+- C
+
+Bert tey kravstig, sum eru vald, verða brúkt og víst.
+
+Um tú til dømis bert velur A og B, verða bert A og B víst á almennu síðuni.
+
+
+Ávirkan á krøv
+--------------
+
+Ávirkan á krøv verður brúkt til at hækka ella lækka krøvini í einari kapping.
+
+Hetta kann vera hent, um ein kapping skal hava eitt annað kravstøði enn vanligu krøvini.
+
+Dømi:
+
+Um ávirkan á krøv verður sett til -5, verða krøvini lækkað við 5%.
+
+Um ávirkan á krøv verður sett til +5, verða krøvini hækkað við 5%.
+
+Hetta ger, at tú kanst brúka somu grundkrøv, men tillaga krøvini til hvørja kapping.
+
+Ávirkan á krøv verður víst sum eitt tal, og kann broytast við plus- og minus-knøppunum ella við at skriva talið beinleiðis.
+
+
+Prosent regla
+-------------
+
+Prosent regla verður brúkt í tvídystar kappingum.
+
+Hon verður ikki brúkt í stig kappingum.
+
+Prosent reglan stýrir, hvussu nógv omanfyri ein vektflokk ein íðkari kann viga og framvegis verða samanborin við tann vektflokkin.
+
+Dømi:
+
+Um prosent reglan er 3%, kann ein íðkari vera upp til 3% omanfyri vektflokkin og framvegis verða kannaður móti tí vektflokkinum.
+
+Hetta er hent, tí ymiskar kappingar kunnu hava ymiskar reglur um, hvussu nógv omanfyri ein vektflokk ein íðkari kann vera.
+
+Prosent regla verður sett fyri hvørja kapping.
+
+
+TVÍDYSTAR KRØV
+=====================
+
+Fyri tvídystar kappingar verða úttøkukrøvini skrivað í kilo.
+
+Fyri hvørt valt kravstig kanst tú leggja krøv inn fyri:
+
+- Menn
+- Kvinnur
+
+Hvør regla í talvuni hevur:
+
+- Vektflokkur
+- Heiti
+- Krav
+
+
+Vektflokkur
+-----------
+
+Vektflokkur er tann vektflokkurin, sum kravið hoyrir til.
+
+Dømi:
+
+- 61 kg
+- 73 kg
+- 89 kg
+
+
+Heiti
+-----
+
+Heiti vísir, hvat kravstig talan er um.
+
+Dømi:
+
+- A-krav
+- B-krav
+- C-krav
+- Minimum krav
+
+
+Krav
+----
+
+Krav er tað samlaða úrslitið, sum íðkarin skal lyfta fyri at klára kravstigið.
+
+Dømi:
+
+- 180 kg
+- 220 kg
+- 260 kg
+
+
+Leggja vektflokkar afturat
+--------------------------
+
+Tað ber til at leggja fleiri vektflokkar afturat í krøvunum.
+
+Fyri at leggja ein vektflokk afturat:
+
+1. Trýst á + vektflokk
+2. Skriva vektflokkin.
+5. Skriva krav.
+6. Goym broytingarnar.
+
+
+Strika vektflokkar
+------------------
+
+Hvør vektflokkur hevur ein x-knøtt.
+
+Trýst á x fyri at strika ein vektflokk.
+
+Hetta kann brúkast, um ein vektflokkur ikki longur skal vera við, ella um ein vektflokkur er lagdur skeivt inn.
+
+
+STIG KRØV
+================
+
+Fyri stig kappingar verða úttøkukrøvini skrivað í stigum.
+
+Fyrst skal ein stigskipan veljast.
+
+
+Stigskipan
+----------
+
+Stigskipanin avger, hvussu úrslitið hjá íðkaranum verður roknað um til stig.
+
+Dømi um stigskipanir kunnu vera:
+
+- Sinclair
+- Q-points
+- Q-masters
+- GAMX, -M, -A, -U
+- aðrar stuðlaðar stigskipanir
+
+Rætta stigskipanin skal veljast fyri hvørja stig kapping.
+
+
+Kravstig í stig kappingum
+----------------------------------
+
+Stig kappingar kunnu eisini hava:
+
+- Minimum krav
+- A
+- B
+- C
+
+Hetta virkar á sama hátt sum í tvídystar kappingum.
+
+Tá tú velur kravstig, koma knøttar fram fyri tey valdu kravstigini.
+
+Dømi:
+
+- A-krav
+- B-krav
+- C-krav
+- Minimum krav
+
+Trýst á hvønn knøtt fyri at skriva krøvini fyri tað valdað kravstigið.
+
+
+Stigkrøv fyri menn og kvinnur
+-----------------------------
+
+Fyri hvørt valt kravstig skalt tú skriva stigkrøv fyri:
+
+- Menn
+- Kvinnur
+
+
+Tað skal vera eitt virði fyri bæði menn og kvinnur fyri hvørt kravstig, sum er valt.
+
+Um A og B eru vald, skulu stigkrøv skrivast fyri bæði A og B.
+
+Um eitt valt kravstig manglar stigkrøv, biður skipanin teg skriva tey, áðrenn tú kanst goyma.
+
+
+PLUS- OG MINUS-KNAPPAR
+======================
+
+Fleiri feltir hava plus- og minus-knøttar.
+
+Hesir kunnu brúkast til at hækka ella lækka virðið.
+
+Fyri kg-virði hækkar ella lækkar knøtturin virðið við 1.
+
+Fyri stig-virði hækkar ella lækkar knøtturin virðið við 1.
+
+Tú kanst eisini skriva talið beinleiðis í felti.
+
+
+GOYMA BROYTINGAR
+================
+
+Tá tú hevur gjørt broytingar í einari kapping, skalt tú trýsta á:
+
+Goym broytingar
+
+
+BACKUP
+======
+
+Backup verður brúkt til at tryggja, at tú ikki missir dáta.
+
+Tað er gott at taka backup, áðrenn stórar broytingar verða gjørdar.
+
+Backup kann eisini brúkast, um skipanin skal flytast, ella um ein eldri útgáva skal lesast inn aftur.
+
+
+Taka backup
+-----------
+
+Fyri at taka backup:
+
+1. Far í innstillingar.
+2. Finn backup-knøttin.
+3. Vel at taka niður backup.
+4. Skipanin tekur eina backup-fílu niður.
+
+Goym backup-fíluna eitt trygt stað.
+
+Skipanin navngevir áðrenn tað verður tikið niður, so tað er lætt at vita, nær backup varð tikið.
+
+Dømi:
+
+backup-uttokukrov-2026-07-02.json
+
+
+Lesa backup inn aftur
+---------------------
+
+Fyri at lesa eina backup-fílu inn aftur:
+
+1. Far í innstillingar.
+2. Finn møguleikan at lesa inn backup.
+3. Vel backup-fíluna.
+4. Les fíluna inn.
+5. Kanna síðani, at bólkar, kappingar og krøv eru røtt.
+
+Ver varin við at lesa backup inn aftur, tí tað kann yvirskriva verandi dáta í skipanini.
+
+
+NÆR ER GOTT AT TAKA BACKUP?
+===========================
+
+Tað er gott at taka backup:
+
+- áðrenn tú leggur nógvar nýggjar kappingar inn
+- áðrenn tú broytir nógv úttøkukrøv
+- áðrenn tú strikar bólkar ella kappingar
+- áðrenn skipanin verður handað víðari
+- tá ein endalig útgáva er góðkend
+- regluliga, um skipanin verður brúkt nógv
+
+
+
+KANNING ÁÐRENN SKIPANIN VERÐUR BRÚKT ALMENT
+===========================================
+
+Áðrenn skipanin verður brúkt alment, eigur man at kanna:
+
+- at allir bólkar eru rættir
+- at øll kappingarheiti eru røtt
+- at øll kappingarár eru røtt
+- at allar kappingar hava rætta slag av úttøkukravi
+- at tvídystarkrøv eru røtt
+- at stigkrøv eru røtt
+- at rætta stigskipan er vald
+- at kravstigini eru røtt
+- at bert vald kravstig verða víst
+- at úttøkutíðarskeið eru røtt
+- at Ávirkan á krøv er røtt
+- at Prosent regla er røtt fyri tvídystarbaseraðar kappingar
+- at kappingaryvirlitið vísir røtt krøv
+- at úttøkukanningin gevur røtt úrslit
+- at síðan sær góð út á fartelefon
+- at backup er tikið
+
+
+GÓÐ RÁÐ
+=======
+
+- Tak altíð backup áðrenn stórar broytingar.
+- Lat minst ein annan persón kanna krøvini.
+- Royn bæði tvídystar- og stig kappingar.
+- Royn bæði menn og kvinnur.
+- Royn ymisk føðiár fyri at kanna aldurskrøv.
+- Royn ymiskar kroppsvektir fyri at kanna vektflokkar.
+- Kanna almennu síðuna eftir hvørja stóra broyting.
+- Goym eina endaliga backup-fílu, tá skipanin er góðkend.

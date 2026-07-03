@@ -36,6 +36,8 @@ html { scroll-behavior: smooth; min-height: 100%; background: #f8fafc; }
 body {
   min-height: 100vh;
   margin: 0;
+  display: flex;
+  flex-direction: column;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -87,6 +89,7 @@ h4 { font-size: 1rem; }
 
 .page-shell {
   display: grid;
+  flex: 1 0 auto;
   gap: 20px;
   padding: 10px 0 56px;
 }
@@ -919,6 +922,7 @@ h1 {
 }
 
 .site-footer {
+  flex-shrink: 0;
   width: min(1120px, calc(100% - 44px));
   margin: 0 auto;
   padding: 10px 0 34px;
@@ -930,6 +934,11 @@ h1 {
 
 .site-footer p {
   margin: 0;
+}
+
+.footer-version {
+  color: var(--text-muted);
+  font-weight: 650;
 }
 
 .checker-card,
@@ -1757,6 +1766,11 @@ tbody tr:hover {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
+}
+
+.modal-header-action-button {
+  white-space: nowrap;
 }
 
 
@@ -2524,25 +2538,9 @@ tbody tr:hover {
 }
 
 /* Settings modal cleanup: no single-item navigation bar */
+/* The settings add-group action now lives in the modal header. */
 .settings-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin: 18px 0 16px;
-}
-
-.settings-toolbar .secondary-button {
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .settings-toolbar {
-    justify-content: stretch;
-    margin: 16px 0 14px;
-  }
-
-  .settings-toolbar .secondary-button {
-    width: 100%;
-  }
+  display: none;
 }
 
 /* Main checker custom number steppers */
@@ -2690,6 +2688,14 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+  align-items: center;
+}
+
+.point-requirements-grid label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .modal-point-grid {
@@ -2810,12 +2816,13 @@ tbody tr:hover {
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035), 0 1px 2px rgba(15, 23, 42, 0.025) !important;
 }
 
-.competition-updated-at {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.35;
-  text-align: left;
+
+
+.guide-download-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 /* Backup tools */
@@ -2853,4 +2860,931 @@ tbody tr:hover {
   .backup-actions .secondary-button {
     width: 100%;
   }
+}
+
+@media (max-width: 640px) {
+  .modal-header-action-button {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+  }
+}
+
+.qualification-period-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.qualification-period-grid label {
+  font-size: 0.78rem;
+}
+
+.qualification-period-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
+.subtle-action-button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.subtle-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.competition-setup-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.add-competition-modal.has-totals-editor .competition-setup-row {
+  grid-template-columns: minmax(240px, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.competition-setup-row > .choice-section {
+  margin-bottom: 12px;
+}
+
+.competition-meta-details {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  text-align: left;
+}
+
+.competition-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.competition-meta-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.competition-meta-value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+@media (max-width: 760px) {
+  .competition-setup-row,
+  .qualification-period-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Side-by-side setup sections inside the add/edit competition modal. */
+.choice-pair-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.add-competition-modal.has-totals-editor .choice-pair-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice-pair-row > .choice-section,
+.choice-pair-row > #pointCompetitionTypeSlot > .choice-section,
+.choice-pair-row > #pointRequirementLevelSlot > .choice-section {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+#pointCompetitionTypeSlot,
+#pointRequirementLevelSlot {
+  min-width: 0;
+}
+
+
+/* In point-based setup, keep Aldursbólkur and Kravstig side by side,
+   then let Stigskipan span the full modal width below them. */
+.add-competition-modal.has-totals-editor .point-age-system-row > .point-system-section {
+  grid-column: 1 / -1;
+}
+
+#competitionTypeSection.is-disabled {
+  opacity: 0.68;
+}
+
+#competitionTypeSection.is-disabled .choice-button {
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .choice-pair-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Uniform bordered sections inside the competition settings modal.
+   Keeps all setup sections visually aligned with Stigkrøv and the qualification table area. */
+.add-competition-modal .choice-section,
+.add-competition-modal #pointCompetitionTypeSlot > .choice-section,
+.add-competition-modal #mastersAgeChoicesPanel {
+  border: 1px solid #e1e6ee !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--surface-soft) !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035), 0 1px 2px rgba(15, 23, 42, 0.025) !important;
+}
+
+/* Compact per-competition adjustment controls: inputs only, no inner card/title. */
+.competition-adjustment-options--bare {
+  width: auto;
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.competition-adjustment-options--bare .competition-adjustment-row {
+  width: auto;
+}
+
+.competition-adjustment-options--bare .competition-adjustment-label > span:first-child {
+  text-align: right;
+}
+
+.point-adjustment-slot .competition-adjustment-options--bare {
+  display: inline-block;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.point-requirements-header .point-adjustment-slot .competition-adjustment-options--bare {
+  padding: 0 !important;
+}
+
+.hidden-period-picker {
+  position: fixed;
+  opacity: 0.01;
+  color: transparent;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  left: 0;
+  top: 0;
+  z-index: 2147483647;
+}
+
+.period-date-field {
+  position: relative;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--border-color, #d8e0ea);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.period-date-field:focus-within {
+  border-color: var(--accent-color, #1f2937);
+  box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.08);
+}
+
+.period-date-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 42px 0 14px;
+  color: #111827;
+  font-size: 0.92rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.period-date-field.is-empty .period-date-display {
+  color: #9ca3af;
+}
+
+.period-native-input {
+  position: absolute;
+  inset: 0 34px 0 0;
+  width: calc(100% - 34px);
+  height: 100%;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.period-native-input:focus {
+  outline: none;
+}
+.period-date-step {
+  position: absolute;
+  right: 0;
+  width: 34px;
+  height: 50%;
+  border-left: 1px solid var(--line);
+  z-index: 3;
+}
+
+.period-date-step[data-period-date-step="1"] {
+  top: 0;
+}
+
+.period-date-step[data-period-date-step="-1"] {
+  bottom: 0;
+  border-top: 1px solid var(--line);
+}
+
+.competition-year-stepper {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+}
+
+.competition-year-stepper .athlete-number-entry,
+.competition-year-stepper .requirement-stepper-input {
+  min-height: 42px !important;
+}
+
+.competition-year-stepper .athlete-number-step[data-competition-year-step="1"] {
+  grid-row: 1;
+  border-bottom: 1px solid var(--line);
+}
+
+.competition-year-stepper .athlete-number-step[data-competition-year-step="-1"] {
+  grid-row: 2;
+}
+
+
+/* Custom steppers for editable qualification requirements in the competition settings modal */
+.requirement-number-stepper {
+  display: inline-grid;
+  width: 100%;
+  max-width: 132px;
+  min-height: 38px;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+.requirement-weightclass-stepper {
+  max-width: 118px;
+}
+
+.requirement-point-stepper {
+  max-width: 180px;
+}
+
+.requirement-number-stepper .athlete-number-entry {
+  min-height: 38px;
+  padding: 0 6px;
+  justify-content: center;
+}
+
+.requirement-number-stepper .requirement-stepper-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100% !important;
+  min-height: 38px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  text-align: center !important;
+  padding: 0 !important;
+  font-weight: 800;
+}
+
+.requirement-number-stepper .requirement-stepper-input:focus {
+  outline: none;
+  box-shadow: none !important;
+}
+
+.requirement-number-stepper .athlete-number-unit {
+  margin-left: 3px;
+  padding-right: 0;
+  font-size: 0.72rem;
+}
+
+.requirement-number-stepper .athlete-number-step {
+  font-size: 0.72rem;
+}
+
+.edit-table td .requirement-number-stepper {
+  margin-left: auto;
+}
+
+.point-requirements-grid .requirement-number-stepper {
+  margin-top: 6px;
+}
+
+.point-requirements-grid .requirement-point-stepper {
+  width: 100%;
+  max-width: none;
+}
+
+@media (max-width: 640px) {
+  .requirement-number-stepper {
+    max-width: 112px;
+    min-height: 36px;
+  }
+
+  .requirement-number-stepper .athlete-number-entry,
+  .requirement-number-stepper .requirement-stepper-input {
+    min-height: 36px !important;
+  }
+
+  .requirement-weightclass-stepper {
+    max-width: 104px;
+  }
+}
+
+/* Ensure the competition year stepper fills the available modal column width. */
+.requirement-number-stepper.competition-year-stepper {
+  width: 100%;
+  max-width: none;
+}
+
+/* Fix point-competition public-page cards stretching vertically when the page has extra height. */
+.page-shell {
+  align-content: start;
+  align-items: start;
+}
+
+.checker-card,
+.competition-card {
+  align-self: start;
+}
+
+/* Cleaner alignment for editable requirement tables in the competition settings modal. */
+.edit-competition .edit-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.edit-competition .edit-table th,
+.edit-competition .edit-table td {
+  vertical-align: middle;
+}
+
+.edit-competition .edit-table th {
+  text-align: center;
+}
+
+.edit-competition .edit-table td {
+  text-align: center;
+}
+
+.edit-competition .edit-table td .requirement-number-stepper {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.edit-competition .edit-table .row-action-heading,
+.edit-competition .edit-table .row-action-cell {
+  width: 34px;
+  text-align: center;
+}
+
+.edit-competition .edit-table .row-delete-button {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.edit-competition .edit-table--with-title th:nth-child(1),
+.edit-competition .edit-table--with-title td:nth-child(1) {
+  width: 30%;
+}
+
+.edit-competition .edit-table--with-title th:nth-child(2),
+.edit-competition .edit-table--with-title td:nth-child(2) {
+  width: 30%;
+}
+
+.edit-competition .edit-table--with-title th:nth-child(3),
+.edit-competition .edit-table--with-title td:nth-child(3) {
+  width: 30%;
+}
+
+.edit-competition .edit-table--no-title th:nth-child(1),
+.edit-competition .edit-table--no-title td:nth-child(1) {
+  width: 38%;
+}
+
+.edit-competition .edit-table--no-title th:nth-child(2),
+.edit-competition .edit-table--no-title td:nth-child(2) {
+  width: 52%;
+}
+
+.edit-competition .edit-table--no-title td:nth-child(2) .requirement-number-stepper {
+  margin-left: auto;
+  margin-right: 16%;
+}
+
+.edit-competition .edit-table--no-title th:nth-child(2) {
+  text-align: center;
+  padding-left: 20%;
+}
+
+@media (max-width: 760px) {
+  .edit-competition .edit-table--no-title td:nth-child(2) .requirement-number-stepper {
+    margin-right: auto;
+  }
+
+  .edit-competition .edit-table--no-title th:nth-child(2) {
+    padding-left: 0;
+  }
+}
+
+/* Point competitions only show Ávirkan á krøv, so align that single control to the far right. */
+.competition-adjustment-row.competition-adjustment-row--single {
+  grid-template-columns: auto;
+  justify-content: end;
+  justify-items: end;
+}
+
+.competition-adjustment-row.competition-adjustment-row--single .competition-adjustment-label {
+  width: auto;
+  grid-template-columns: auto auto;
+  justify-self: end;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-row.competition-adjustment-row--single {
+  grid-template-columns: auto;
+}
+
+@media (max-width: 760px) {
+  .competition-adjustment-row.competition-adjustment-row--single,
+  .add-competition-modal.has-totals-editor .competition-adjustment-row.competition-adjustment-row--single {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    justify-items: stretch;
+  }
+
+  .competition-adjustment-row.competition-adjustment-row--single .competition-adjustment-label {
+    width: 100%;
+    grid-template-columns: 1fr auto;
+  }
+}
+
+/* Compact requirement tables inside the competition settings modal.
+   Keeps Vektflokkur / Heiti / Krav / action visible without horizontal scrolling. */
+.add-competition-modal.has-totals-editor .edit-gender-grid {
+  gap: 10px;
+  padding: 12px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table-wrap {
+  overflow-x: hidden;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table {
+  min-width: 0 !important;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table th,
+.add-competition-modal.has-totals-editor .edit-competition .edit-table td {
+  padding: 9px 7px;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table th {
+  font-size: 0.64rem;
+  letter-spacing: 0.075em;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table td {
+  font-size: 0.86rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-table td .requirement-number-stepper {
+  width: 100%;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-weightclass-stepper {
+  max-width: 104px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-total-stepper {
+  max-width: 118px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-entry {
+  min-height: 36px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-stepper-input {
+  min-height: 36px !important;
+  font-size: 0.94rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-step {
+  width: 30px;
+  font-size: 0.68rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-unit {
+  font-size: 0.66rem;
+  margin-left: 2px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table--with-title th:nth-child(1),
+.add-competition-modal.has-totals-editor .edit-table--with-title td:nth-child(1) {
+  width: 28%;
+}
+
+.add-competition-modal.has-totals-editor .edit-table--with-title th:nth-child(2),
+.add-competition-modal.has-totals-editor .edit-table--with-title td:nth-child(2) {
+  width: 32%;
+}
+
+.add-competition-modal.has-totals-editor .edit-table--with-title th:nth-child(3),
+.add-competition-modal.has-totals-editor .edit-table--with-title td:nth-child(3) {
+  width: 30%;
+}
+
+.add-competition-modal.has-totals-editor .edit-table--with-title th:nth-child(4),
+.add-competition-modal.has-totals-editor .edit-table--with-title td:nth-child(4),
+.add-competition-modal.has-totals-editor .edit-table .row-action-heading,
+.add-competition-modal.has-totals-editor .edit-table .row-action-cell {
+  width: 28px;
+  padding-left: 2px;
+  padding-right: 4px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .row-delete-button {
+  width: 22px;
+  height: 22px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .add-competition-modal.has-totals-editor .edit-gender-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Unit suffixes inside requirement steppers in the settings modal */
+.requirement-number-stepper .athlete-number-unit {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.requirement-number-stepper .athlete-number-entry.has-unit {
+  gap: 2px;
+}
+
+.requirement-number-stepper .athlete-number-entry.has-unit .requirement-stepper-input {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0 !important;
+  font-size: 0.86rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-entry.has-unit {
+  padding-left: 3px;
+  padding-right: 3px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-entry.has-unit .requirement-stepper-input {
+  font-size: 0.86rem;
+}
+
+/* Experimental minimal style for requirement inputs inside the settings modal tables.
+   Makes the value controls lighter and less box-like while keeping the same steppers and suffixes. */
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper {
+  max-width: 96px;
+  min-height: 30px;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-weightclass-stepper {
+  max-width: 88px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-total-stepper {
+  max-width: 96px;
+}
+
+.add-competition-modal .point-requirements-grid .requirement-point-stepper {
+  max-width: none;
+  min-height: 34px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper:hover,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper:hover,
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper:focus-within,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper:focus-within {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-entry,
+.add-competition-modal .point-requirements-grid .athlete-number-entry {
+  min-height: 30px;
+  padding: 0 3px;
+  background: transparent;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-stepper-input,
+.add-competition-modal .point-requirements-grid .requirement-stepper-input {
+  min-height: 30px !important;
+  height: 30px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-unit,
+.add-competition-modal .point-requirements-grid .athlete-number-unit {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+  opacity: 0.78;
+  margin-left: 1px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-step,
+.add-competition-modal .point-requirements-grid .athlete-number-step {
+  width: 22px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: rgba(71, 85, 105, 0.72);
+  background: transparent;
+  border-left-color: rgba(15, 23, 42, 0.06);
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-step:first-of-type,
+.add-competition-modal .point-requirements-grid .athlete-number-step:first-of-type {
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+
+.add-competition-modal.has-totals-editor .edit-table .athlete-number-step:hover,
+.add-competition-modal .point-requirements-grid .athlete-number-step:hover {
+  color: var(--text);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table th,
+.add-competition-modal.has-totals-editor .edit-competition .edit-table td {
+  padding: 7px 5px;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table th {
+  font-size: 0.6rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-competition .edit-table td {
+  font-size: 0.8rem;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .row-delete-button {
+  width: 20px;
+  height: 20px;
+  font-size: 0.8rem;
+  opacity: 0.65;
+  transition: opacity 0.16s ease, background 0.16s ease;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .row-delete-button:hover {
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper {
+    max-width: 90px;
+  }
+
+  .add-competition-modal.has-totals-editor .edit-table .requirement-weightclass-stepper {
+    max-width: 82px;
+  }
+
+  .add-competition-modal.has-totals-editor .edit-table .athlete-number-step {
+    width: 20px;
+  }
+}
+
+/* Flatter requirement inputs: keep compact sizing, remove boxed field styling,
+   and make editability/stepper affordances more subtle. */
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 6px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper:hover,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper:hover,
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper:focus-within,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper:focus-within {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-entry,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .athlete-number-entry {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .requirement-stepper-input,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .requirement-stepper-input {
+  cursor: text;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .requirement-stepper-input:hover,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .requirement-stepper-input:hover,
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .requirement-stepper-input:focus,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .requirement-stepper-input:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-unit,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .athlete-number-unit {
+  opacity: 0.64;
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-step,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .athlete-number-step {
+  border-left-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-radius: 5px;
+  background: transparent !important;
+  color: rgba(71, 85, 105, 0.62);
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-step:hover,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .athlete-number-step:hover {
+  background: rgba(15, 23, 42, 0.055) !important;
+  color: var(--text);
+}
+
+.add-competition-modal.has-totals-editor .edit-table .requirement-number-stepper .athlete-number-step:focus-visible,
+.add-competition-modal .point-requirements-grid .requirement-number-stepper .athlete-number-step:focus-visible {
+  outline: 1px solid rgba(15, 23, 42, 0.22);
+  outline-offset: -1px;
+}
+
+/* Rebalance the first setup row so the qualification period can stay on one compact row. */
+@media (min-width: 761px) {
+  .add-competition-modal.has-totals-editor .competition-setup-row {
+    grid-template-columns: minmax(210px, 0.48fr) minmax(0, 1.52fr);
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-type-section {
+    min-width: 0;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: end;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-section .choice-heading {
+    grid-column: 1 / -1;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-grid {
+    grid-column: 1;
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-actions {
+    grid-column: 2;
+    align-self: end;
+    margin-top: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 940px) {
+  .add-competition-modal.has-totals-editor .qualification-period-section {
+    grid-template-columns: 1fr;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-grid,
+  .add-competition-modal.has-totals-editor .qualification-period-actions {
+    grid-column: 1;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-actions {
+    margin-top: 10px;
+  }
+}
+
+/* Flat/minimal style for Ávirkan á krøv and Prosent regla controls.
+   Matches the requirement-table inputs while keeping the same behavior and layout. */
+.add-competition-modal.has-totals-editor .competition-adjustment-stepper {
+  min-height: 30px;
+  border: 0 !important;
+  border-radius: 6px;
+  overflow: visible;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-input {
+  width: 66px;
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: text;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-input:hover,
+.add-competition-modal.has-totals-editor .competition-adjustment-input:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-buttons {
+  border-left: 0 !important;
+  gap: 1px;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-step {
+  width: 22px;
+  border: 0 !important;
+  border-radius: 5px;
+  background: transparent !important;
+  color: rgba(71, 85, 105, 0.62);
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-step:first-child {
+  border-bottom: 0 !important;
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-step:hover {
+  background: rgba(15, 23, 42, 0.055) !important;
+  color: var(--text);
+}
+
+.add-competition-modal.has-totals-editor .competition-adjustment-step:focus-visible {
+  outline: 1px solid rgba(15, 23, 42, 0.22);
+  outline-offset: -1px;
+}
+
+/* Small polish: give qualification-table delete controls more breathing room */
+.row-action-heading,
+.row-action-cell {
+  width: 44px;
+  padding-right: 8px;
+}
+
+/* Match competition delete button corner radius with the save button */
+.danger-button {
+  border-radius: 999px;
 }

@@ -237,6 +237,7 @@ const ADD_COMPETITION_TYPES = {
 };
 
 const ADD_REQUIREMENT_LEVELS = ["Úttøkukrav", "A-krav", "B-krav", "C-krav"];
+const POINT_REQUIREMENT_DISPLAY_ORDER = ["A-krav", "B-krav", "C-krav", "Úttøkukrav"];
 
 const DEFAULT_MASTERS_AGE_OPTIONS = [
   { label: "M35", min: 35, max: 39 },
@@ -289,6 +290,7 @@ let activeResultsGroup = "all";
 let activeTotalsCompetitionSlug = qualificationData[0]?.slug || "";
 let activeTotalsRequirementTitle = "";
 let activeTotalsMastersAgeGroupKey = {};
+let pointRequirementEditDrafts = {};
 let settingsDragState = {
   type: "",
   sourceKey: "",
@@ -342,6 +344,7 @@ function persistQualificationData(force = false) {
 }
 
 function resetAddCompetitionDraftState() {
+  pointRequirementEditDrafts = {};
   addCompetitionState.originalQualificationData = null;
   addCompetitionState.originalSerialized = "";
   addCompetitionState.isSaving = false;
@@ -411,12 +414,20 @@ const elements = {
   newGroupShortLabel: document.getElementById("newGroupShortLabel"),
   newCompetitionName: document.getElementById("newCompetitionName"),
   newCompetitionYear: document.getElementById("newCompetitionYear"),
+  qualificationPeriodStart: document.getElementById("qualificationPeriodStart"),
+  qualificationPeriodEnd: document.getElementById("qualificationPeriodEnd"),
+  clearQualificationPeriod: document.getElementById("clearQualificationPeriod"),
   qualificationTypeChoices: document.getElementById("qualificationTypeChoices"),
   totalQualificationFields: document.getElementById("totalQualificationFields"),
   pointQualificationFields: document.getElementById("pointQualificationFields"),
   pointSystemChoices: document.getElementById("pointSystemChoices"),
   pointRequirementMen: document.getElementById("pointRequirementMen"),
   pointRequirementWomen: document.getElementById("pointRequirementWomen"),
+  pointRequirementsSection: document.getElementById("pointRequirementsSection"),
+  totalAgeRequirementRow: document.querySelector(".total-age-requirement-row"),
+  pointCompetitionTypeSlot: document.getElementById("pointCompetitionTypeSlot"),
+  pointRequirementLevelSlot: document.getElementById("pointRequirementLevelSlot"),
+  requirementLevelSection: document.getElementById("requirementLevelSection"),
   competitionTypeChoices: document.getElementById("competitionTypeChoices"),
   competitionTypeSection: document.getElementById("competitionTypeSection"),
   mastersAgeChoicesPanel: document.getElementById("mastersAgeChoicesPanel"),
@@ -447,6 +458,7 @@ const elements = {
   authPassword: document.getElementById("authPassword"),
   authError: document.getElementById("authError"),
   authSubmitButton: document.getElementById("authSubmitButton"),
+  footerVersion: document.getElementById("footerVersion"),
 };
 
 init();
@@ -532,6 +544,12 @@ function bindEvents() {
   });
   elements.importBackupInput?.addEventListener("change", handleBackupFileSelected);
 
+  bindQualificationPeriodPicker(elements.qualificationPeriodStart);
+  bindQualificationPeriodPicker(elements.qualificationPeriodEnd);
+  elements.qualificationPeriodStart?.addEventListener("input", syncQualificationPeriodClearButton);
+  elements.qualificationPeriodEnd?.addEventListener("input", syncQualificationPeriodClearButton);
+  elements.clearQualificationPeriod?.addEventListener("click", clearQualificationPeriodInDialog);
+
   elements.totalsEditor.addEventListener("dragstart", handleSettingsDragStart);
   elements.totalsEditor.addEventListener("dragover", handleSettingsDragOver);
   elements.totalsEditor.addEventListener("dragleave", handleSettingsDragLeave);
@@ -583,12 +601,16 @@ function bindEvents() {
     }
   });
 
+  elements.totalsEditor.addEventListener("pointerdown", handleCompetitionStepperPointerDown);
+
   elements.totalsEditor.addEventListener("click", (event) => {
     const adjustmentStepButton = event.target.closest(
       "[data-competition-adjustment-step]",
     );
     if (adjustmentStepButton) {
-      stepCompetitionAdjustmentValue(adjustmentStepButton);
+      if (!shouldSuppressStepClick(adjustmentStepButton, event)) {
+        stepCompetitionAdjustmentValue(adjustmentStepButton);
+      }
       return;
     }
 
@@ -596,7 +618,33 @@ function bindEvents() {
       "[data-competition-rule-percent-step]",
     );
     if (rulePercentStepButton) {
-      stepCompetitionRulePercentValue(rulePercentStepButton);
+      if (!shouldSuppressStepClick(rulePercentStepButton, event)) {
+        stepCompetitionRulePercentValue(rulePercentStepButton);
+      }
+      return;
+    }
+
+    const competitionYearStepButton = event.target.closest("[data-competition-year-step]");
+    if (competitionYearStepButton) {
+      if (!shouldSuppressStepClick(competitionYearStepButton, event)) {
+        stepCompetitionYearInput(competitionYearStepButton);
+      }
+      return;
+    }
+
+    const periodDateStepButton = event.target.closest("[data-period-date-step]");
+    if (periodDateStepButton) {
+      if (!shouldSuppressStepClick(periodDateStepButton, event)) {
+        stepQualificationPeriodInput(periodDateStepButton);
+      }
+      return;
+    }
+
+    const requirementStepButton = event.target.closest("[data-requirement-input-step]");
+    if (requirementStepButton) {
+      if (!shouldSuppressStepClick(requirementStepButton, event)) {
+        stepRequirementEditorInput(requirementStepButton);
+      }
       return;
     }
 
@@ -647,7 +695,7 @@ function bindEvents() {
   elements.addCompetitionDialog.addEventListener(
     "click",
     (event) => {
-      if (event.target.closest("[data-choice], [data-competition-adjustment-step], [data-competition-rule-percent-step], [data-add-weightclass], [data-delete-weightclass]")) {
+      if (event.target.closest("[data-choice], [data-competition-adjustment-step], [data-competition-rule-percent-step], [data-competition-year-step], [data-period-date-step], [data-requirement-input-step], [data-add-weightclass], [data-delete-weightclass]")) {
         markAddCompetitionDirty();
       }
     },
@@ -663,7 +711,7 @@ function bindEvents() {
 
   elements.competitionTypeChoices.addEventListener("click", (event) => {
     const button = event.target.closest("[data-choice='competitionType']");
-    if (!button) return;
+    if (!button || button.disabled) return;
     setSingleChoice(elements.competitionTypeChoices, button.dataset.value);
     renderMastersAgeChoices();
     updateMastersAgeVisibility();
@@ -765,12 +813,16 @@ function bindEvents() {
     }
   });
 
+  elements.addCompetitionDialog.addEventListener("pointerdown", handleCompetitionStepperPointerDown);
+
   elements.addCompetitionDialog.addEventListener("click", (event) => {
     const adjustmentStepButton = event.target.closest(
       "[data-competition-adjustment-step]",
     );
     if (adjustmentStepButton) {
-      stepCompetitionAdjustmentValue(adjustmentStepButton);
+      if (!shouldSuppressStepClick(adjustmentStepButton, event)) {
+        stepCompetitionAdjustmentValue(adjustmentStepButton);
+      }
       return;
     }
 
@@ -778,7 +830,33 @@ function bindEvents() {
       "[data-competition-rule-percent-step]",
     );
     if (rulePercentStepButton) {
-      stepCompetitionRulePercentValue(rulePercentStepButton);
+      if (!shouldSuppressStepClick(rulePercentStepButton, event)) {
+        stepCompetitionRulePercentValue(rulePercentStepButton);
+      }
+      return;
+    }
+
+
+    const competitionYearStepButton = event.target.closest("[data-competition-year-step]");
+    if (competitionYearStepButton) {
+      if (!shouldSuppressStepClick(competitionYearStepButton, event)) {
+        stepCompetitionYearInput(competitionYearStepButton);
+      }
+      return;
+    }
+
+    const periodDateStepButton = event.target.closest("[data-period-date-step]");
+    if (periodDateStepButton) {
+      if (!shouldSuppressStepClick(periodDateStepButton, event)) {
+        stepQualificationPeriodInput(periodDateStepButton);
+      }
+      return;
+    }
+    const requirementStepButton = event.target.closest("[data-requirement-input-step]");
+    if (requirementStepButton) {
+      if (!shouldSuppressStepClick(requirementStepButton, event)) {
+        stepRequirementEditorInput(requirementStepButton);
+      }
       return;
     }
 
@@ -845,8 +923,63 @@ function bindEvents() {
 
 }
 
+function handleCompetitionStepperPointerDown(event) {
+  const adjustmentStepButton = event.target.closest(
+    "[data-competition-adjustment-step]",
+  );
+  if (adjustmentStepButton) {
+    startRepeatingStep(adjustmentStepButton, event, () =>
+      stepCompetitionAdjustmentValue(adjustmentStepButton),
+    );
+    return;
+  }
+
+  const rulePercentStepButton = event.target.closest(
+    "[data-competition-rule-percent-step]",
+  );
+  if (rulePercentStepButton) {
+    startRepeatingStep(rulePercentStepButton, event, () =>
+      stepCompetitionRulePercentValue(rulePercentStepButton),
+    );
+    return;
+  }
+
+  const competitionYearStepButton = event.target.closest(
+    "[data-competition-year-step]",
+  );
+  if (competitionYearStepButton) {
+    startRepeatingStep(competitionYearStepButton, event, () =>
+      stepCompetitionYearInput(competitionYearStepButton),
+    );
+    return;
+  }
+
+  const periodDateStepButton = event.target.closest(
+    "[data-period-date-step]",
+  );
+  if (periodDateStepButton) {
+    startRepeatingStep(periodDateStepButton, event, () =>
+      stepQualificationPeriodInput(periodDateStepButton),
+    );
+    return;
+  }
+
+  const requirementStepButton = event.target.closest(
+    "[data-requirement-input-step]",
+  );
+  if (requirementStepButton) {
+    startRepeatingStep(requirementStepButton, event, () =>
+      stepRequirementEditorInput(requirementStepButton),
+    );
+  }
+}
+
 function bindAthleteNumberSteppers() {
-  document.querySelectorAll(".athlete-number-step").forEach((button) => {
+  document.querySelectorAll(".athlete-number-step[data-athlete-number-step]").forEach((button) => {
+    if (button.matches("[data-requirement-input-step], [data-competition-year-step], [data-period-date-step], [data-competition-adjustment-step], [data-competition-rule-percent-step]")) {
+      return;
+    }
+
     button.addEventListener("pointerdown", handleAthleteNumberStepPointerDown);
     button.addEventListener("keydown", handleAthleteNumberStepKeyDown);
     button.addEventListener("click", (event) => {
@@ -857,19 +990,25 @@ function bindAthleteNumberSteppers() {
 }
 
 function handleAthleteNumberStepPointerDown(event) {
-  runAthleteNumberStep(event.currentTarget, event);
+  const stepButton = event.currentTarget;
+  if (!(stepButton instanceof HTMLElement)) return;
+
+  startRepeatingStep(stepButton, event, () => runAthleteNumberStep(stepButton));
 }
 
 function handleAthleteNumberStepKeyDown(event) {
   if (event.key !== "Enter" && event.key !== " ") return;
-  runAthleteNumberStep(event.currentTarget, event);
-}
 
-function runAthleteNumberStep(stepButton, event) {
+  const stepButton = event.currentTarget;
   if (!(stepButton instanceof HTMLElement)) return;
 
   event.preventDefault();
   event.stopPropagation();
+  runAthleteNumberStep(stepButton);
+}
+
+function runAthleteNumberStep(stepButton) {
+  if (!(stepButton instanceof HTMLElement)) return;
 
   const step = parseStepperNumber(stepButton.dataset.athleteNumberStep);
   const input = stepButton
@@ -878,6 +1017,58 @@ function runAthleteNumberStep(stepButton, event) {
   if (!input || !Number.isFinite(step) || step === 0) return;
 
   stepAthleteNumberInput(input, step);
+}
+
+const repeatingStepState = {
+  timeoutId: null,
+  intervalId: null,
+  button: null,
+};
+
+function startRepeatingStep(button, event, stepAction) {
+  if (!(button instanceof HTMLElement) || typeof stepAction !== "function") return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  stopRepeatingStep();
+
+  button.dataset.suppressNextStepClick = "true";
+  repeatingStepState.button = button;
+
+  stepAction();
+
+  repeatingStepState.timeoutId = window.setTimeout(() => {
+    repeatingStepState.intervalId = window.setInterval(stepAction, 80);
+  }, 350);
+
+  const stopEvents = ["pointerup", "pointercancel", "pointerleave", "blur"];
+  const stop = () => stopRepeatingStep();
+  stopEvents.forEach((eventName) => {
+    window.addEventListener(eventName, stop, { once: true });
+  });
+}
+
+function stopRepeatingStep() {
+  if (repeatingStepState.timeoutId) {
+    window.clearTimeout(repeatingStepState.timeoutId);
+  }
+  if (repeatingStepState.intervalId) {
+    window.clearInterval(repeatingStepState.intervalId);
+  }
+  repeatingStepState.timeoutId = null;
+  repeatingStepState.intervalId = null;
+  repeatingStepState.button = null;
+}
+
+function shouldSuppressStepClick(button, event) {
+  if (!(button instanceof HTMLElement)) return false;
+  if (button.dataset.suppressNextStepClick !== "true") return false;
+
+  event.preventDefault();
+  event.stopPropagation();
+  delete button.dataset.suppressNextStepClick;
+  return true;
 }
 
 function stepAthleteNumberInput(input, step) {
@@ -893,6 +1084,79 @@ function stepAthleteNumberInput(input, step) {
   input.value = formatStepperNumber(nextValue, decimalPlaces);
   updateAthleteNumberInputState(input);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function stepRequirementEditorInput(stepButton) {
+  if (!(stepButton instanceof HTMLElement)) return;
+
+  const step = parseStepperNumber(stepButton.dataset.requirementInputStep);
+  const stepper = stepButton.closest(".requirement-number-stepper");
+  const input = stepper?.querySelector(".requirement-stepper-input");
+  if (!input || !Number.isFinite(step) || step === 0) return;
+
+  const current = parseInputNumberValue(input.value);
+  const min = parseNumberAttribute(input, "min");
+  const max = parseNumberAttribute(input, "max");
+  const hadPlusSuffix = /\+\s*$/.test(String(input.value || ""));
+  const decimalPlaces = getDecimalPlaces(step);
+  let nextValue = (Number.isFinite(current) ? current : 0) + step;
+
+  if (Number.isFinite(min)) nextValue = Math.max(min, nextValue);
+  if (Number.isFinite(max)) nextValue = Math.min(max, nextValue);
+
+  input.value = `${formatStepperNumber(nextValue, decimalPlaces)}${hadPlusSuffix ? "+" : ""}`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function stepCompetitionYearInput(stepButton) {
+  if (!(stepButton instanceof HTMLElement)) return;
+
+  const step = parseStepperNumber(stepButton.dataset.competitionYearStep);
+  const stepper = stepButton.closest(".competition-year-stepper");
+  const input = stepper?.querySelector("#newCompetitionYear");
+  if (!input || !Number.isFinite(step) || step === 0) return;
+
+  const current = parseInputNumberValue(input.value);
+  const min = parseNumberAttribute(input, "min");
+  const max = parseNumberAttribute(input, "max");
+  let nextValue = (Number.isFinite(current) ? current : QUALIFICATION_YEAR) + step;
+
+  if (Number.isFinite(min)) nextValue = Math.max(min, nextValue);
+  if (Number.isFinite(max)) nextValue = Math.min(max, nextValue);
+
+  input.value = formatStepperNumber(nextValue, 0);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function stepQualificationPeriodInput(stepButton) {
+  if (!(stepButton instanceof HTMLElement)) return;
+
+  const step = parseStepperNumber(stepButton.dataset.periodDateStep);
+  const field = stepButton.closest(".period-date-field");
+  const input = field?.querySelector(".period-native-input");
+  if (!input || !Number.isFinite(step) || step === 0) return;
+
+  const currentValue = isValidDateInputValue(input.value)
+    ? input.value
+    : (isValidDateInputValue(field?.dataset.defaultDate) ? field.dataset.defaultDate : toIsoDate(QUALIFICATION_YEAR, 1, 1));
+  const nextValue = addDaysToIsoDate(currentValue, step);
+  if (!nextValue) return;
+
+  input.value = nextValue;
+  updateQualificationPeriodInputDisplay(input);
+  syncQualificationPeriodClearButton();
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function addDaysToIsoDate(value, days) {
+  if (!isValidDateInputValue(value) || !Number.isFinite(days)) return "";
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return toIsoDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function getAthleteInputDecimalPlaces(input, step) {
@@ -996,6 +1260,7 @@ function updateAuthControls() {
   elements.openLogin?.classList.toggle("is-hidden", isLoggedIn);
   elements.openSettings?.classList.toggle("is-hidden", !isLoggedIn);
   elements.mainLogoutButton?.classList.toggle("is-hidden", !isLoggedIn);
+  elements.footerVersion?.classList.toggle("is-hidden", !isLoggedIn);
 }
 
 async function handleAuthSubmit(event) {
@@ -1378,12 +1643,13 @@ function normalizeQualificationData(data) {
         updatedAt: isValidDateString(competition.updatedAt)
           ? competition.updatedAt
           : "",
+        qualificationPeriod: normalizeQualificationPeriod(competition.qualificationPeriod),
       };
       normalized.qualificationType = getQualificationType(normalized);
       normalized.pointSystem = getNormalizedPointSystem(normalized);
       normalized.gamxType = getNormalizedGamxType(normalized);
       normalized.sinclairCycle = normalized.sinclairCycle || DEFAULT_SINCLAIR_CYCLE;
-      normalized.pointRequirements = normalizePointRequirements(normalized.pointRequirements);
+      normalized.pointRequirements = normalizePointRequirements(normalized.pointRequirements, getRequirementTitles(normalized));
       normalized.adjustmentPercent = getCompetitionAdjustmentPercent(normalized);
       normalized.rulePercent = Object.prototype.hasOwnProperty.call(normalized, "rulePercent")
         ? getCompetitionRulePercent(normalized)
@@ -1590,12 +1856,24 @@ function renderEditCompetitionTotalsEditor() {
     getActiveChoice(elements.qualificationTypeChoices) ||
     getQualificationType(competition) ||
     DEFAULT_QUALIFICATION_TYPE;
+  const shouldShowPointEditor = selectedQualificationType === "points";
   const shouldShowTotalEditor = selectedQualificationType === "total";
-  const totalCompetition = shouldShowTotalEditor
-    ? createCompetitionWithPreservedTotalSetup(competition)
-    : null;
+  const editorCompetition = shouldShowPointEditor
+    ? {
+        ...competition,
+        qualificationType: "points",
+        pointSystem: getNormalizedPointSystem(competition),
+        gamxType: getNormalizedGamxType(competition),
+        pointRequirements: getPointRequirementEditDraft(
+          competition,
+          getSelectedRequirementLevels(),
+        ),
+      }
+    : shouldShowTotalEditor
+      ? createCompetitionWithPreservedTotalSetup(competition)
+      : null;
 
-  if (!competition || !shouldShowTotalEditor || !totalCompetition) {
+  if (!competition || !editorCompetition || (!shouldShowTotalEditor && !shouldShowPointEditor)) {
     elements.editCompetitionTotalsPanel.classList.add("is-hidden");
     elements.editCompetitionTotalsEditor.innerHTML = "";
     return;
@@ -1604,7 +1882,7 @@ function renderEditCompetitionTotalsEditor() {
   elements.editCompetitionTotalsPanel.classList.remove("is-hidden");
   activeTotalsCompetitionSlug = competition.slug;
   elements.editCompetitionTotalsEditor.innerHTML =
-    renderCompetitionTotalsEditorContent(totalCompetition);
+    renderCompetitionTotalsEditorContent(editorCompetition);
   bindTotalsEditorTabs(elements.editCompetitionTotalsEditor);
 }
 
@@ -1715,6 +1993,12 @@ function bindTotalsEditorTabs(container) {
     .querySelectorAll("[data-totals-requirement-title]")
     .forEach((button) => {
       button.addEventListener("click", () => {
+        const savedVisiblePointValues = syncVisiblePointRequirementInputsToDraft(container);
+        if (savedVisiblePointValues) {
+          persistQualificationData();
+          renderCompetition();
+          renderChecker();
+        }
         activeTotalsRequirementTitle = button.dataset.totalsRequirementTitle;
         renderEditCompetitionTotalsEditor();
       });
@@ -2137,7 +2421,7 @@ function renderEditableGenderTable(
   items,
   mastersAgeGroupTabbed = false,
 ) {
-  const showTitleColumn = getRequirementTitles(competition).length > 1;
+  const showTitleColumn = true;
   const showAgeColumns =
     isMastersCompetition(competition) && !mastersAgeGroupTabbed;
   const activeTitle = showTitleColumn
@@ -2165,7 +2449,7 @@ function renderEditableGenderTable(
         ${
           items.length
             ? `
-          <table class="edit-table">
+          <table class="edit-table ${showTitleColumn ? 'edit-table--with-title' : 'edit-table--no-title'}">
             <thead>
               <tr>
                 ${showAgeColumns ? "<th>Aldursbólkur</th><th>Min</th><th>Maks</th>" : ""}
@@ -2231,35 +2515,47 @@ function renderEditableGenderTable(
                       : ""
                   }
                   <td>
-                    <div class="weightclass-edit-cell">
-                      <input
-                        class="weightclass-edit-input"
-                        data-weightclass-input
-                        data-competition-slug="${escapeAttribute(competition.slug)}"
-                        data-gender-key="${escapeAttribute(genderKey)}"
-                        data-row-index="${index}"
-                        type="text"
-                        inputmode="decimal"
-                        value="${escapeAttribute(formatWeightClassInputValue(row))}"
-                        aria-label="${escapeAttribute(`${competition.name} ${label} vektflokkur ${row.title}`)}"
-                      />
-                      <span>kg</span>
-                    </div>
+                    <span class="athlete-number-stepper requirement-number-stepper requirement-weightclass-stepper">
+                      <span class="athlete-number-entry has-unit">
+                        <input
+                          class="weightclass-edit-input requirement-stepper-input"
+                          data-weightclass-input
+                          data-competition-slug="${escapeAttribute(competition.slug)}"
+                          data-gender-key="${escapeAttribute(genderKey)}"
+                          data-row-index="${index}"
+                          type="text"
+                          inputmode="decimal"
+                          value="${escapeAttribute(formatWeightClassInputValue(row))}"
+                          aria-label="${escapeAttribute(`${competition.name} ${label} vektflokkur ${row.title}`)}"
+                        />
+                        <span class="athlete-number-unit">kg</span>
+                      </span>
+                      <button class="athlete-number-step" type="button" data-requirement-input-step="1" aria-label="Hækka vektflokk">+</button>
+                      <button class="athlete-number-step" type="button" data-requirement-input-step="-1" aria-label="Lækka vektflokk">−</button>
+                    </span>
                   </td>
-                  ${showTitleColumn ? `<td>${escapeHtml(row.title)}</td>` : ""}
+                  ${showTitleColumn ? `<td>${escapeHtml(getEditableRequirementTitleLabel(row.title))}</td>` : ""}
                   <td>
-                    <input
-                      class="total-edit-input"
-                      data-total-input
-                      data-competition-slug="${escapeAttribute(competition.slug)}"
-                      data-gender-key="${escapeAttribute(genderKey)}"
-                      data-row-index="${index}"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value="${escapeAttribute(row.original)}"
-                      aria-label="${escapeAttribute(`${competition.name} ${label} ${formatWeightClassLabel(row)} ${row.title}`)}"
-                    />
+                    <span class="athlete-number-stepper requirement-number-stepper requirement-total-stepper">
+                      <span class="athlete-number-entry has-unit">
+                        <input
+                          class="total-edit-input requirement-stepper-input"
+                          data-total-input
+                          data-competition-slug="${escapeAttribute(competition.slug)}"
+                          data-gender-key="${escapeAttribute(genderKey)}"
+                          data-row-index="${index}"
+                          type="text"
+                          inputmode="numeric"
+                          min="0"
+                          step="1"
+                          value="${escapeAttribute(row.original)}"
+                          aria-label="${escapeAttribute(`${competition.name} ${label} ${formatWeightClassLabel(row)} ${row.title}`)}"
+                        />
+                        <span class="athlete-number-unit">kg</span>
+                      </span>
+                      <button class="athlete-number-step" type="button" data-requirement-input-step="1" aria-label="Hækka krav">+</button>
+                      <button class="athlete-number-step" type="button" data-requirement-input-step="-1" aria-label="Lækka krav">−</button>
+                    </span>
                   </td>
                   <td class="row-action-cell">
                     <button
@@ -2285,6 +2581,11 @@ function renderEditableGenderTable(
       </div>
     </article>
   `;
+}
+
+
+function getEditableRequirementTitleLabel(title) {
+  return title && title !== "Úttøkukrav" ? title : "Minimum krav";
 }
 
 function getAddRowContext(control, competition) {
@@ -2729,10 +3030,11 @@ function renderCompetitionDisplayControls(competition) {
     slug: competition.slug,
     signed: true,
   });
-  const ruleControl = isPointCompetition(competition)
+  const pointCompetition = isPointCompetition(competition);
+  const ruleControl = pointCompetition
     ? ""
     : renderCompetitionPercentStepper({
-        label: "% regla",
+        label: "Prosent regla",
         value: getCompetitionRulePercent(competition),
         inputDataAttribute: "data-competition-rule-percent-input",
         stepDataAttribute: "data-competition-rule-percent-step",
@@ -2742,13 +3044,12 @@ function renderCompetitionDisplayControls(competition) {
       });
 
   return `
-    <fieldset class="competition-display-options competition-adjustment-options" aria-label="Krav og vektregla fyri hesa kapping">
-      <legend>Krav í hesi kapping</legend>
-      <div class="competition-adjustment-row">
+    <div class="competition-adjustment-options competition-adjustment-options--bare" aria-label="Krav og vektregla fyri hesa kapping">
+      <div class="competition-adjustment-row${pointCompetition ? " competition-adjustment-row--single" : ""}">
         ${adjustmentControl}
         ${ruleControl}
       </div>
-    </fieldset>
+    </div>
   `;
 }
 
@@ -2932,7 +3233,7 @@ function renderCompetition() {
       ${renderTable("Menn", menRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
       ${renderTable("Kvinnur", womenRows, requirementTitles.length > 1, competition, Boolean(activeMastersAgeGroup))}
     </div>
-    ${renderUpdatedAtText(competition)}
+    ${renderCompetitionMetaDetails(competition)}
   `;
 
   const requirementButtons = elements.panel.querySelectorAll(
@@ -3085,11 +3386,154 @@ function getNormalizedGamxType(competition) {
   return ["gamx", "gamxM", "gamxA", "gamxU"].includes(raw) ? raw : "";
 }
 
-function normalizePointRequirements(requirements) {
+function normalizePointRequirementPair(requirements) {
   return {
     men: normalizeOptionalNumber(requirements?.men),
     women: normalizeOptionalNumber(requirements?.women),
   };
+}
+
+function isFlatPointRequirementPair(requirements) {
+  if (!requirements || typeof requirements !== "object") return false;
+  return Object.prototype.hasOwnProperty.call(requirements, "men") ||
+    Object.prototype.hasOwnProperty.call(requirements, "women");
+}
+
+function getRequirementLevelDisplayLabel(level) {
+  if (level === "Úttøkukrav") return "Minimum krav";
+  if (level === "A-krav") return "A";
+  if (level === "B-krav") return "B";
+  if (level === "C-krav") return "C";
+  return level || "Minimum krav";
+}
+
+function normalizePointRequirements(requirements, levels = null) {
+  const selectedLevels = normalizeRequirementLevelsSelection(
+    Array.isArray(levels) && levels.length ? levels : ["Úttøkukrav"],
+  );
+
+  if (isFlatPointRequirementPair(requirements)) {
+    return {
+      "Úttøkukrav": normalizePointRequirementPair(requirements),
+    };
+  }
+
+  const normalized = {};
+  const source = requirements && typeof requirements === "object" ? requirements : {};
+  const sourceLevels = Object.keys(source).filter((key) => {
+    const pair = source[key];
+    return pair && typeof pair === "object" && (
+      Object.prototype.hasOwnProperty.call(pair, "men") ||
+      Object.prototype.hasOwnProperty.call(pair, "women")
+    );
+  });
+  const allLevels = [...new Set([...selectedLevels, ...sourceLevels])];
+
+  allLevels.forEach((level) => {
+    normalized[level] = normalizePointRequirementPair(source[level]);
+  });
+
+  if (!Object.keys(normalized).length) {
+    normalized["Úttøkukrav"] = normalizePointRequirementPair(null);
+  }
+
+  return normalized;
+}
+
+
+function getPointRequirementDraftKey(competition = null) {
+  return competition?.slug || addCompetitionState.competitionSlug || "__new__";
+}
+
+function getActivePointRequirementLevels() {
+  return getSelectedRequirementLevels();
+}
+
+function ensurePointRequirementEditDraft(competition, levels = getActivePointRequirementLevels()) {
+  const key = getPointRequirementDraftKey(competition);
+  const normalizedLevels = normalizeRequirementLevelsSelection(levels);
+  const source = pointRequirementEditDrafts[key] || competition?.pointRequirements || null;
+  pointRequirementEditDrafts[key] = normalizePointRequirementsForSelectedLevels(source, normalizedLevels);
+  return pointRequirementEditDrafts[key];
+}
+
+function getPointRequirementEditDraft(competition, levels = getActivePointRequirementLevels()) {
+  return ensurePointRequirementEditDraft(competition, levels);
+}
+
+function syncVisiblePointRequirementInputsToDraft(container = document) {
+  if (!container?.querySelectorAll) return false;
+  const competition = qualificationData.find(
+    (item) => item.slug === addCompetitionState.competitionSlug,
+  );
+  if (!competition && addCompetitionState.mode === "edit-competition") return false;
+  const key = getPointRequirementDraftKey(competition);
+  const levels = getActivePointRequirementLevels();
+  const draft = ensurePointRequirementEditDraft(competition, levels);
+  let didUpdate = false;
+  container.querySelectorAll("[data-point-requirement]").forEach((input) => {
+    const gender = input.dataset.pointRequirement;
+    if (!["men", "women"].includes(gender)) return;
+    const level = input.dataset.pointRequirementLevel || "Úttøkukrav";
+    if (!draft[level]) draft[level] = normalizePointRequirementPair(null);
+    const nextValue = normalizeOptionalNumber(input.value);
+    if (draft[level][gender] !== nextValue) didUpdate = true;
+    draft[level][gender] = nextValue;
+  });
+  pointRequirementEditDrafts[key] = normalizePointRequirementsForSelectedLevels(draft, levels);
+  return didUpdate;
+}
+
+function getPointRequirementsForDialogSave(competition, levels = getActivePointRequirementLevels()) {
+  syncVisiblePointRequirementInputsToDraft(elements.addCompetitionDialog || document);
+  return normalizePointRequirementsForSelectedLevels(
+    getPointRequirementEditDraft(competition, levels),
+    levels,
+  );
+}
+
+function normalizePointRequirementsForSelectedLevels(requirements, levels) {
+  const selectedLevels = normalizeRequirementLevelsSelection(
+    Array.isArray(levels) && levels.length ? levels : ["Úttøkukrav"],
+  );
+  const source = isFlatPointRequirementPair(requirements)
+    ? { "Úttøkukrav": normalizePointRequirementPair(requirements) }
+    : requirements && typeof requirements === "object"
+      ? requirements
+      : {};
+  const normalized = {};
+
+  selectedLevels.forEach((level) => {
+    normalized[level] = normalizePointRequirementPair(source[level]);
+  });
+
+  return Object.keys(normalized).length
+    ? normalized
+    : { "Úttøkukrav": normalizePointRequirementPair(null) };
+}
+
+function getPointRequirementLevels(competition) {
+  const rowLevels = getRequirementTitles(competition || {}).filter((level) =>
+    ADD_REQUIREMENT_LEVELS.includes(level),
+  );
+
+  // For point competitions the selected kravstig is tracked by the same row titles
+  // used by total-based competitions. Point requirement values may still contain
+  // older/fallback levels, so only use pointRequirements as a fallback when no row
+  // selection exists. This prevents unselected levels such as Minimum krav from
+  // appearing on the public page.
+  if (rowLevels.length) return rowLevels.sort(requirementTitleSort);
+
+  const requirementLevels = Object.keys(competition?.pointRequirements || {}).filter((level) =>
+    ADD_REQUIREMENT_LEVELS.includes(level),
+  );
+  if (!requirementLevels.length) return ["Úttøkukrav"];
+  return [...new Set(requirementLevels)].sort(requirementTitleSort);
+}
+
+function getPointRequirementLevelsForDisplay(competition) {
+  const levels = getPointRequirementLevels(competition);
+  return POINT_REQUIREMENT_DISPLAY_ORDER.filter((level) => levels.includes(level));
 }
 
 function normalizeOptionalNumber(value) {
@@ -3138,14 +3582,11 @@ function getPointSetupFromDialog() {
     pointSystem: isGamxChoice ? "gamx" : selected,
     gamxType: isGamxChoice ? selectedConfig.gamxType || selected : "",
     sinclairCycle: DEFAULT_SINCLAIR_CYCLE,
-    pointRequirements: {
-      men: normalizeOptionalNumber(elements.pointRequirementMen?.value),
-      women: normalizeOptionalNumber(elements.pointRequirementWomen?.value),
-    },
+    pointRequirements: normalizePointRequirements(null, getSelectedRequirementLevels()),
   };
 }
 
-function validatePointCompetitionSetup(pointSetup) {
+function validatePointCompetitionSetup(pointSetup, { requireRequirements = true } = {}) {
   if (!pointSetup.pointSystem) return "Vel stigskipan.";
   const selected = pointSetup.pointSystem === "gamx" ? pointSetup.gamxType : pointSetup.pointSystem;
   const selectedConfig = POINT_SYSTEMS[selected];
@@ -3153,11 +3594,13 @@ function validatePointCompetitionSetup(pointSetup) {
   if (!selectedConfig.available) {
     return `${selectedConfig.label} kann ikki brúkast enn, tí almenn rokni-data vantar.`;
   }
-  if (!Number.isFinite(pointSetup.pointRequirements.men)) {
-    return "Skriva stigkrav fyri menn.";
-  }
-  if (!Number.isFinite(pointSetup.pointRequirements.women)) {
-    return "Skriva stigkrav fyri kvinnur.";
+  if (requireRequirements) {
+    const missingLevel = Object.entries(pointSetup.pointRequirements || {}).find(([, values]) => {
+      return !Number.isFinite(values?.men) || !Number.isFinite(values?.women);
+    });
+    if (missingLevel) {
+      return `Skriva stigkrav fyri ${getRequirementLevelDisplayLabel(missingLevel[0])}.`;
+    }
   }
   if (pointSetup.pointSystem === "gamx" && !pointSetup.gamxType) {
     return "Vel GAMX slag.";
@@ -3165,22 +3608,69 @@ function validatePointCompetitionSetup(pointSetup) {
   return "";
 }
 
-function updatePointRequirement(input) {
+function storePointRequirementInputValue(input) {
   const competition = qualificationData.find(
     (item) => item.slug === addCompetitionState.competitionSlug,
   );
-  if (!competition || !isPointCompetition(competition)) return;
+  const isDialogPointEdit =
+    addCompetitionState.mode === "edit-competition" &&
+    getActiveChoice(elements.qualificationTypeChoices) === "points";
+  if (!competition && isDialogPointEdit) return false;
+  if (!competition || (!isPointCompetition(competition) && !isDialogPointEdit)) return false;
   const gender = input.dataset.pointRequirement;
-  if (!["men", "women"].includes(gender)) return;
-  competition.pointRequirements = normalizePointRequirements(competition.pointRequirements);
-  competition.pointRequirements[gender] = normalizeOptionalNumber(input.value);
+  if (!["men", "women"].includes(gender)) return false;
+  const level = input.dataset.pointRequirementLevel || "Úttøkukrav";
+  const levels = getActivePointRequirementLevels();
+  const draft = ensurePointRequirementEditDraft(competition, levels);
+  if (!draft[level]) {
+    draft[level] = normalizePointRequirementPair(null);
+  }
+  draft[level][gender] = normalizeOptionalNumber(input.value);
+  pointRequirementEditDrafts[getPointRequirementDraftKey(competition)] = normalizePointRequirementsForSelectedLevels(draft, levels);
+
+  // If the saved competition is already point based, keep its live data in sync.
+  // If the user is only temporarily switching a total competition to points inside the modal,
+  // keep values in the edit draft until the competition is saved.
+  if (isPointCompetition(competition)) {
+    competition.pointRequirements = normalizePointRequirementsForSelectedLevels(
+      pointRequirementEditDrafts[getPointRequirementDraftKey(competition)],
+      levels,
+    );
+  }
+  return true;
+}
+
+function syncVisiblePointRequirementInputs(container = document) {
+  const didUpdate = syncVisiblePointRequirementInputsToDraft(container);
+  const competition = qualificationData.find(
+    (item) => item.slug === addCompetitionState.competitionSlug,
+  );
+  if (competition && isPointCompetition(competition)) {
+    competition.pointRequirements = normalizePointRequirementsForSelectedLevels(
+      getPointRequirementEditDraft(competition, getActivePointRequirementLevels()),
+      getActivePointRequirementLevels(),
+    );
+  }
+  return didUpdate;
+}
+
+function updatePointRequirement(input) {
+  if (!storePointRequirementInputValue(input)) return;
+  persistQualificationData();
   renderCompetition();
   renderChecker();
 }
 
 function renderPointCompetition(competition) {
   const systemName = getCompetitionPointSystemDisplayName(competition);
-  const req = normalizePointRequirements(competition.pointRequirements);
+  const req = normalizePointRequirements(
+    competition.pointRequirements,
+    getPointRequirementLevels(competition),
+  );
+  const levels = getPointRequirementLevelsForDisplay({
+    ...competition,
+    pointRequirements: req,
+  });
   elements.panel.innerHTML = `
     <div class="competition-info">
       <div>
@@ -3194,24 +3684,75 @@ function renderPointCompetition(competition) {
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Menn</th><th>Kvinnur</th></tr>
+            <tr><th>Kravstig</th><th>Menn</th><th>Kvinnur</th></tr>
+          </thead>
+          <tbody>
+            ${levels
+              .map((level) => `
+                <tr>
+                  <td>${escapeHtml(getRequirementLevelDisplayLabel(level))}</td>
+                  <td>${formatPointRequirement(req[level]?.men)} stig</td>
+                  <td>${formatPointRequirement(req[level]?.women)} stig</td>
+                </tr>
+              `)
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </article>
+    ${renderCompetitionMetaDetails(competition)}
+  `;
+}
+
+function renderPointRequirementGenderTable(level, gender, label, value) {
+  const genderLabel = gender === "men" ? "monnum" : "kvinnum";
+  return `
+    <article class="table-card point-requirement-edit-card">
+      <h3>${escapeHtml(label)}</h3>
+      <div class="table-wrap">
+        <table class="edit-table point-requirements-table">
+          <thead>
+            <tr><th>Kravstig</th><th>Stigkrav</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td>${formatPointRequirement(req.men)} stig</td>
-              <td>${formatPointRequirement(req.women)} stig</td>
+              <td>${escapeHtml(getRequirementLevelDisplayLabel(level))}</td>
+              <td>
+                <span class="athlete-number-stepper requirement-number-stepper requirement-point-stepper">
+                  <span class="athlete-number-entry has-unit">
+                    <input class="requirement-stepper-input" type="text" inputmode="decimal" value="${escapeAttribute(formatPointRequirementInput(value))}" data-point-requirement="${escapeAttribute(gender)}" data-point-requirement-level="${escapeAttribute(level)}" />
+                    <span class="athlete-number-unit">stig</span>
+                  </span>
+                  <button class="athlete-number-step" type="button" data-requirement-input-step="1" aria-label="Hækka stigkrav hjá ${escapeAttribute(genderLabel)}">+</button>
+                  <button class="athlete-number-step" type="button" data-requirement-input-step="-1" aria-label="Lækka stigkrav hjá ${escapeAttribute(genderLabel)}">−</button>
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
     </article>
-    ${renderUpdatedAtText(competition)}
   `;
 }
 
 function renderPointCompetitionEditor(competition) {
   const systemName = getCompetitionPointSystemDisplayName(competition);
-  const req = normalizePointRequirements(competition.pointRequirements);
+  const levels = getPointRequirementLevelsForDisplay(competition);
+  const req = normalizePointRequirements(competition.pointRequirements, levels);
+  if (
+    levels.length > 1 &&
+    (!activeTotalsRequirementTitle || !levels.includes(activeTotalsRequirementTitle))
+  ) {
+    activeTotalsRequirementTitle = levels[0];
+  }
+  if (levels.length <= 1) {
+    activeTotalsRequirementTitle = "";
+  }
+  const activeLevel = levels.length > 1
+    ? activeTotalsRequirementTitle || levels[0]
+    : levels[0] || "Úttøkukrav";
+  const requirementTabs = renderTotalsRequirementTabs(competition, levels);
+
   return `
     <section class="edit-competition active-edit-competition modal-edit-competition point-qualification-editor">
       <header class="edit-competition-header compact-edit-header">
@@ -3221,19 +3762,11 @@ function renderPointCompetitionEditor(competition) {
         </div>
         ${renderCompetitionDisplayControls(competition)}
       </header>
-      <article class="table-card point-qualification-card">
-        <h3>Stigkrøv</h3>
-        <div class="point-requirements-grid modal-point-grid">
-          <label>
-            Menn
-            <input type="text" inputmode="decimal" value="${escapeAttribute(formatPointRequirementInput(req.men))}" data-point-requirement="men" />
-          </label>
-          <label>
-            Kvinnur
-            <input type="text" inputmode="decimal" value="${escapeAttribute(formatPointRequirementInput(req.women))}" data-point-requirement="women" />
-          </label>
-        </div>
-      </article>
+      ${requirementTabs}
+      <div class="edit-gender-grid point-requirement-gender-grid">
+        ${renderPointRequirementGenderTable(activeLevel, "men", "Menn", req[activeLevel]?.men)}
+        ${renderPointRequirementGenderTable(activeLevel, "women", "Kvinnur", req[activeLevel]?.women)}
+      </div>
     </section>
   `;
 }
@@ -3266,6 +3799,215 @@ function getCurrentTimestamp() {
   return new Date().toISOString();
 }
 
+function isValidDateInputValue(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+
+let activeQualificationPeriodInput = null;
+function updateQualificationPeriodInputDisplay(input) {
+  if (!input) return;
+  const field = input.closest(".period-date-field");
+  const display = field?.querySelector(".period-date-display");
+  if (!field || !display) return;
+
+  const placeholder = field.dataset.placeholder || "";
+  if (isValidDateInputValue(input.value)) {
+    display.textContent = formatDateForPeriodInput(input.value);
+    field.classList.remove("is-empty");
+  } else {
+    display.textContent = placeholder;
+    field.classList.add("is-empty");
+  }
+}
+
+function bindQualificationPeriodPicker(input) {
+  if (!input) return;
+
+  updateQualificationPeriodInputDisplay(input);
+
+  input.addEventListener("change", () => {
+    updateQualificationPeriodInputDisplay(input);
+    syncQualificationPeriodClearButton();
+    markAddCompetitionDirty();
+  });
+
+  input.addEventListener("input", () => {
+    updateQualificationPeriodInputDisplay(input);
+    syncQualificationPeriodClearButton();
+  });
+}
+
+const INVALID_QUALIFICATION_PERIOD_DATE = "__invalid_date__";
+
+function isRealCalendarDate(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+  );
+}
+
+function toIsoDate(year, month, day) {
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function parseDisplayDateInputValue(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  if (isValidDateInputValue(rawValue)) return rawValue;
+
+  const match = rawValue.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (!isRealCalendarDate(year, month, day)) return null;
+  return toIsoDate(year, month, day);
+}
+
+function formatDateForPeriodInput(value) {
+  if (!isValidDateInputValue(value)) return "";
+  const [year, month, day] = String(value).split("-");
+  const monthNames = [
+    "januar",
+    "februar",
+    "mars",
+    "apríl",
+    "mai",
+    "juni",
+    "juli",
+    "august",
+    "september",
+    "oktober",
+    "november",
+    "desember",
+  ];
+  const monthName = monthNames[Number(month) - 1] || month;
+  return `${Number(day)} ${monthName} ${year}`;
+}
+
+function normalizeQualificationPeriod(value) {
+  const startDate = isValidDateInputValue(value?.startDate)
+    ? String(value.startDate)
+    : "";
+  const endDate = isValidDateInputValue(value?.endDate)
+    ? String(value.endDate)
+    : "";
+  return { startDate, endDate };
+}
+
+function getQualificationPeriodFromDialog() {
+  const startDate = parseDisplayDateInputValue(elements.qualificationPeriodStart?.value);
+  const endDate = parseDisplayDateInputValue(elements.qualificationPeriodEnd?.value);
+
+  return {
+    startDate: startDate === null ? INVALID_QUALIFICATION_PERIOD_DATE : startDate,
+    endDate: endDate === null ? INVALID_QUALIFICATION_PERIOD_DATE : endDate,
+  };
+}
+
+function validateQualificationPeriod(period) {
+  if (
+    period?.startDate === INVALID_QUALIFICATION_PERIOD_DATE
+    || period?.endDate === INVALID_QUALIFICATION_PERIOD_DATE
+  ) {
+    return {
+      valid: false,
+      error: "Vel ella skriva eina galdandi dagfesting, t.d. 1 januar 2026.",
+    };
+  }
+
+  const normalized = normalizeQualificationPeriod(period);
+  if (normalized.startDate && normalized.endDate && normalized.startDate > normalized.endDate) {
+    return {
+      valid: false,
+      error: "Endadagurin kann ikki vera áðrenn byrjanardagin.",
+    };
+  }
+  return { valid: true, period: normalized };
+}
+
+const PERIOD_MONTH_NAMES = [
+  "januar",
+  "februar",
+  "mars",
+  "apríl",
+  "mai",
+  "juni",
+  "juli",
+  "august",
+  "september",
+  "oktober",
+  "november",
+  "desember",
+];
+
+function formatPeriodDate(value) {
+  if (!isValidDateInputValue(value)) return "";
+  const [year, month, day] = String(value).split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function formatPeriodDateLong(value) {
+  if (!isValidDateInputValue(value)) return "";
+  const [year, month, day] = String(value).split("-");
+  const monthName = PERIOD_MONTH_NAMES[Number(month) - 1] || month;
+  return `${Number(day)} ${monthName} ${year}`;
+}
+
+function syncQualificationPeriodClearButton() {
+  if (!elements.clearQualificationPeriod) return;
+  const hasPeriod = Boolean(
+    elements.qualificationPeriodStart?.value || elements.qualificationPeriodEnd?.value,
+  );
+  elements.clearQualificationPeriod.disabled = !hasPeriod;
+}
+
+function clearQualificationPeriodInDialog() {
+  if (elements.qualificationPeriodStart) {
+    elements.qualificationPeriodStart.value = "";
+    updateQualificationPeriodInputDisplay(elements.qualificationPeriodStart);
+  }
+  if (elements.qualificationPeriodEnd) {
+    elements.qualificationPeriodEnd.value = "";
+    updateQualificationPeriodInputDisplay(elements.qualificationPeriodEnd);
+  }
+  syncQualificationPeriodClearButton();
+  markAddCompetitionDirty();
+}
+
+function getQualificationPeriodDisplayText(competition) {
+  const period = normalizeQualificationPeriod(competition?.qualificationPeriod);
+  if (!period.startDate && !period.endDate) return "";
+
+  if (period.startDate && period.endDate) {
+    return `${formatPeriodDateLong(period.startDate)} - ${formatPeriodDateLong(period.endDate)}`;
+  }
+  if (period.startDate) {
+    return `frá ${formatPeriodDateLong(period.startDate)}`;
+  }
+  return `til ${formatPeriodDateLong(period.endDate)}`;
+}
+
+function renderCompetitionMetaDetails(competition) {
+  const items = [];
+  const periodText = getQualificationPeriodDisplayText(competition);
+  const updatedDate = formatUpdatedDate(competition?.updatedAt);
+
+  if (periodText) {
+    items.push(`<span class="competition-meta-pill"><span class="competition-meta-label">Úttøkutíðarskeið</span><span class="competition-meta-value">${escapeHtml(periodText)}</span></span>`);
+  }
+  if (updatedDate) {
+    items.push(`<span class="competition-meta-pill"><span class="competition-meta-label">Dagført</span><span class="competition-meta-value">${escapeHtml(updatedDate)}</span></span>`);
+  }
+
+  return items.length ? `<div class="competition-meta-details">${items.join("")}</div>` : "";
+}
+
 function isValidDateString(value) {
   return Boolean(value) && !Number.isNaN(new Date(value).getTime());
 }
@@ -3277,11 +4019,6 @@ function formatUpdatedDate(value) {
     month: "2-digit",
     year: "numeric",
   });
-}
-
-function renderUpdatedAtText(competition) {
-  const date = formatUpdatedDate(competition?.updatedAt);
-  return date ? `<p class="competition-updated-at">Dagført: ${escapeHtml(date)}</p>` : "";
 }
 
 // Stig requirements use the same sign convention as Tvídystur: negative lowers the requirement, positive raises it.
@@ -3525,7 +4262,7 @@ function inverseNormalCdf(probability) {
     ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
 }
 
-function checkPointQualification(athlete, competition) {
+function checkPointQualifications(athlete, competition) {
   const pointResult = calculatePoints({
     system: getNormalizedPointSystem(competition),
     gamxType: getNormalizedGamxType(competition),
@@ -3536,57 +4273,77 @@ function checkPointQualification(athlete, competition) {
     sinclairCycle: competition.sinclairCycle || DEFAULT_SINCLAIR_CYCLE,
   });
   const systemName = pointResult.displayName || getCompetitionPointSystemDisplayName(competition);
-  if (!pointResult.valid) {
-    return {
-      valid: false,
-      qualified: false,
-      canCalculate: false,
-      competition: competition.name,
-      slug: competition.slug,
-      group: getCompetitionGroup(competition),
-      category: competition.category,
-      qualificationType: "points",
-      pointSystemName: systemName,
-      error: pointResult.error,
-    };
-  }
-  const requiredPoints = normalizePointRequirements(competition.pointRequirements)[athlete.gender];
-  if (!Number.isFinite(Number(requiredPoints))) {
-    return {
-      valid: false,
-      qualified: false,
-      canCalculate: false,
-      competition: competition.name,
-      slug: competition.slug,
-      group: getCompetitionGroup(competition),
-      category: competition.category,
-      qualificationType: "points",
-      pointSystemName: systemName,
-      points: pointResult.points,
-      error: "Einki stigkrav er skrásett fyri hetta kynið.",
-    };
-  }
-  const adjustedRequiredPoints = adjustedPointRequirement(
-    requiredPoints,
-    getCompetitionAdjustmentPercent(competition),
-  );
-  const difference = pointResult.points - adjustedRequiredPoints;
-  return {
-    valid: true,
-    qualified: difference >= -POINT_COMPARISON_EPSILON,
-    canCalculate: true,
+  const baseResult = {
     competition: competition.name,
     slug: competition.slug,
     group: getCompetitionGroup(competition),
     category: competition.category,
     qualificationType: "points",
     pointSystemName: systemName,
-    points: pointResult.points,
-    requiredPoints: adjustedRequiredPoints,
-    originalRequiredPoints: Number(requiredPoints),
-    adjustmentPercent: getCompetitionAdjustmentPercent(competition),
-    difference,
   };
+
+  if (!pointResult.valid) {
+    return [{
+      ...baseResult,
+      valid: false,
+      qualified: false,
+      canCalculate: false,
+      error: pointResult.error,
+    }];
+  }
+
+  const requirements = normalizePointRequirements(
+    competition.pointRequirements,
+    getPointRequirementLevels(competition),
+  );
+  const levels = getPointRequirementLevelsForDisplay({
+    ...competition,
+    pointRequirements: requirements,
+  });
+
+  const results = levels.map((level) => {
+    const requiredPoints = requirements[level]?.[athlete.gender];
+    if (!Number.isFinite(Number(requiredPoints))) {
+      return {
+        ...baseResult,
+        valid: false,
+        qualified: false,
+        canCalculate: false,
+        points: pointResult.points,
+        requirementLevel: level,
+        requirementLevelLabel: getRequirementLevelDisplayLabel(level),
+        error: "Einki stigkrav er skrásett fyri hetta kynið.",
+      };
+    }
+    const adjustedRequiredPoints = adjustedPointRequirement(
+      requiredPoints,
+      getCompetitionAdjustmentPercent(competition),
+    );
+    const difference = pointResult.points - adjustedRequiredPoints;
+    return {
+      ...baseResult,
+      valid: true,
+      qualified: difference >= -POINT_COMPARISON_EPSILON,
+      canCalculate: true,
+      points: pointResult.points,
+      requirementLevel: level,
+      requirementLevelLabel: getRequirementLevelDisplayLabel(level),
+      requiredPoints: adjustedRequiredPoints,
+      originalRequiredPoints: Number(requiredPoints),
+      adjustmentPercent: getCompetitionAdjustmentPercent(competition),
+      difference,
+    };
+  });
+
+  const qualifiedResults = results.filter((item) => item.qualified);
+  if (qualifiedResults.length) {
+    return [qualifiedResults.sort((a, b) => requirementTitleSort(a.requirementLevel, b.requirementLevel))[0]];
+  }
+  return results.length ? [results[results.length - 1]] : [];
+}
+
+function checkPointQualification(athlete, competition) {
+  return checkPointQualifications(athlete, competition)[0];
 }
 
 function updateThreePercentRuleButton() {
@@ -3630,7 +4387,7 @@ function renderChecker() {
     if (!isCompetitionAgeEligible(competition, competitionAge)) return [];
 
     if (isPointCompetition(competition)) {
-      return [checkPointQualification({ gender: key, bodyweight, total, age: competitionAge }, competition)];
+      return checkPointQualifications({ gender: key, bodyweight, total, age: competitionAge }, competition);
     }
 
     const competitionClasses = uniqueWeightClasses(
@@ -3907,38 +4664,44 @@ function renderQualifiedCompetition(competition, total) {
 
 
 function renderQualifiedPointCompetition(competition) {
-  const row = competition.rows[0];
-  const differenceClass = row.difference >= 0 ? "margin-positive" : "margin-negative";
-  const differencePrefix = row.difference >= 0 ? "+" : "";
   return `
     <article class="qualified-card point-result-card">
       <div class="qualified-card-header">
         <h4>${escapeHtml(competition.name)}</h4>
-        <span>1 krav</span>
+        <span>${competition.rows.length} krav</span>
       </div>
       <div class="qualified-table-wrap">
         <table class="qualified-table">
           <thead>
             <tr>
-              <th>Stigskipan</th>
+              <th>Kravstig</th>
               <th>Krav</th>
               <th>Úrslit</th>
               <th>Munur</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>${escapeHtml(row.pointSystemName)}</td>
-              <td>${formatPointRequirementValue(row.requiredPoints)} stig</td>
-              <td>${formatPointValue(row.points)} stig</td>
-              <td class="${differenceClass}">${differencePrefix}${formatPointValue(row.difference)} stig</td>
-            </tr>
+            ${competition.rows
+              .map((row) => {
+                const differenceClass = row.difference >= 0 ? "margin-positive" : "margin-negative";
+                const differencePrefix = row.difference >= 0 ? "+" : "";
+                return `
+                  <tr>
+                    <td>${escapeHtml(row.requirementLevelLabel || getRequirementLevelDisplayLabel(row.requirementLevel))}</td>
+                    <td>${formatPointRequirementValue(row.requiredPoints)} stig</td>
+                    <td>${formatPointValue(row.points)} stig</td>
+                    <td class="${differenceClass}">${differencePrefix}${formatPointValue(row.difference)} stig</td>
+                  </tr>
+                `;
+              })
+              .join("")}
           </tbody>
         </table>
       </div>
     </article>
   `;
 }
+
 
 
 
@@ -4186,6 +4949,18 @@ function openAddCompetitionDialog(
     elements.newCompetitionYear.value =
       competitionToEdit?.competitionYear || QUALIFICATION_YEAR;
   }
+  const qualificationPeriod = normalizeQualificationPeriod(
+    competitionToEdit?.qualificationPeriod,
+  );
+  if (elements.qualificationPeriodStart) {
+    elements.qualificationPeriodStart.value = qualificationPeriod.startDate;
+    updateQualificationPeriodInputDisplay(elements.qualificationPeriodStart);
+  }
+  if (elements.qualificationPeriodEnd) {
+    elements.qualificationPeriodEnd.value = qualificationPeriod.endDate;
+    updateQualificationPeriodInputDisplay(elements.qualificationPeriodEnd);
+  }
+  syncQualificationPeriodClearButton();
 
   const qualificationType = competitionToEdit
     ? getQualificationType(competitionToEdit)
@@ -4199,24 +4974,41 @@ function openAddCompetitionDialog(
     getPointSystemChoiceValue(competitionToEdit || { pointSystem: DEFAULT_POINT_SYSTEM }),
   );
   if (elements.pointRequirementMen) {
-    elements.pointRequirementMen.value = formatPointRequirementInput(competitionToEdit?.pointRequirements?.men);
+    elements.pointRequirementMen.value = formatPointRequirementInput(normalizePointRequirements(competitionToEdit?.pointRequirements)["Úttøkukrav"]?.men);
     elements.pointRequirementMen.setAttribute("data-point-requirement", "men");
   }
   if (elements.pointRequirementWomen) {
-    elements.pointRequirementWomen.value = formatPointRequirementInput(competitionToEdit?.pointRequirements?.women);
+    elements.pointRequirementWomen.value = formatPointRequirementInput(normalizePointRequirements(competitionToEdit?.pointRequirements)["Úttøkukrav"]?.women);
     elements.pointRequirementWomen.setAttribute("data-point-requirement", "women");
   }
   updateQualificationTypeVisibility();
 
-  const typeChoice = preservedTotalCompetition
-    ? getCompetitionTypeChoice(preservedTotalCompetition)
-    : "senior";
+  const pointSystemChoiceForEdit = getPointSystemChoiceValue(
+    competitionToEdit || { pointSystem: DEFAULT_POINT_SYSTEM },
+  );
+  const shouldUsePointAgeRuleForEdit =
+    qualificationType === "points" &&
+    !isAgeSpecificPointSystemChoice(pointSystemChoiceForEdit);
+  const typeChoice = shouldUsePointAgeRuleForEdit
+    ? getCompetitionTypeChoice(competitionToEdit)
+    : preservedTotalCompetition
+      ? getCompetitionTypeChoice(preservedTotalCompetition)
+      : "senior";
   setSingleChoice(elements.competitionTypeChoices, typeChoice);
   setRequirementLevels(
-    preservedTotalCompetition
-      ? getRequirementTitles(preservedTotalCompetition)
-      : ["Úttøkukrav"],
+    competitionToEdit && getQualificationType(competitionToEdit) === "points"
+      ? getPointRequirementLevels(competitionToEdit)
+      : preservedTotalCompetition
+        ? getRequirementTitles(preservedTotalCompetition)
+        : ["Úttøkukrav"],
   );
+  if (competitionToEdit) {
+    pointRequirementEditDrafts[getPointRequirementDraftKey(competitionToEdit)] =
+      normalizePointRequirementsForSelectedLevels(
+        competitionToEdit.pointRequirements,
+        getSelectedRequirementLevels(),
+      );
+  }
   renderMastersAgeChoices(
     preservedTotalCompetition ? getMastersAgeGroups(preservedTotalCompetition) : null,
   );
@@ -4254,6 +5046,40 @@ function renderMastersAgeChoices(selectedGroups = null) {
   ).join("");
 }
 
+function placeCompetitionTypeSectionForQualificationType(qualificationType) {
+  if (qualificationType === "points") {
+    if (elements.competitionTypeSection && elements.pointCompetitionTypeSlot) {
+      elements.pointCompetitionTypeSlot.appendChild(elements.competitionTypeSection);
+    }
+    if (elements.requirementLevelSection && elements.pointRequirementLevelSlot) {
+      elements.pointRequirementLevelSlot.appendChild(elements.requirementLevelSection);
+    }
+    return;
+  }
+  if (elements.totalAgeRequirementRow) {
+    if (elements.competitionTypeSection) {
+      elements.totalAgeRequirementRow.insertBefore(
+        elements.competitionTypeSection,
+        elements.totalAgeRequirementRow.firstElementChild,
+      );
+    }
+    if (elements.requirementLevelSection) {
+      elements.totalAgeRequirementRow.appendChild(elements.requirementLevelSection);
+    }
+  }
+}
+
+function setCompetitionTypeSectionDisabled(isDisabled) {
+  if (!elements.competitionTypeSection || !elements.competitionTypeChoices) return;
+  elements.competitionTypeSection.classList.toggle("is-disabled", isDisabled);
+  elements.competitionTypeChoices
+    .querySelectorAll(".choice-button")
+    .forEach((button) => {
+      button.disabled = isDisabled;
+      button.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+    });
+}
+
 function updateMastersAgeVisibility() {
   const type = getActiveChoice(elements.competitionTypeChoices) || "senior";
   const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
@@ -4264,18 +5090,40 @@ function updateMastersAgeVisibility() {
   );
 }
 
+function updateCompetitionTypeChoiceAvailability() {
+  const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
+  const pointSystemChoice = getActiveChoice(elements.pointSystemChoices) || DEFAULT_POINT_SYSTEM;
+  const hideMastersForQPoints = qualificationType === "points" && pointSystemChoice === "qpoints";
+  const mastersButton = elements.competitionTypeChoices?.querySelector('[data-choice="competitionType"][data-value="masters"]');
+
+  if (mastersButton) {
+    mastersButton.classList.toggle("is-hidden", hideMastersForQPoints);
+    mastersButton.disabled = hideMastersForQPoints;
+  }
+
+  if (hideMastersForQPoints && getActiveChoice(elements.competitionTypeChoices) === "masters") {
+    setSingleChoice(elements.competitionTypeChoices, "open");
+  }
+}
+
 function updateQualificationTypeVisibility() {
   const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
   const isPoints = qualificationType === "points";
   const pointSystemChoice = getActiveChoice(elements.pointSystemChoices) || DEFAULT_POINT_SYSTEM;
   const isAgeSpecificPointSystem = isPoints && isAgeSpecificPointSystemChoice(pointSystemChoice);
 
+  placeCompetitionTypeSectionForQualificationType(qualificationType);
+  updateCompetitionTypeChoiceAvailability();
+  setCompetitionTypeSectionDisabled(isAgeSpecificPointSystem);
   elements.totalQualificationFields?.classList.toggle("is-hidden", isPoints);
   elements.pointQualificationFields?.classList.toggle("is-hidden", !isPoints);
-  elements.competitionTypeSection?.classList.toggle("is-hidden", isAgeSpecificPointSystem);
+  elements.pointRequirementsSection?.classList.add("is-hidden");
 
   if (elements.editCompetitionTotalsPanel) {
-    elements.editCompetitionTotalsPanel.classList.toggle("is-hidden", isPoints);
+    elements.editCompetitionTotalsPanel.classList.toggle(
+      "is-hidden",
+      addCompetitionState.mode !== "edit-competition",
+    );
   }
 
   // When the user switches between Tvídystur and Stig inside the edit dialog,
@@ -4353,8 +5201,25 @@ function createCompetitionWithPreservedTotalSetup(competition) {
   };
 }
 
-function setRequirementLevels(levels) {
+function normalizeRequirementLevelsSelection(levels) {
   const selected = new Set(levels && levels.length ? levels : ["Úttøkukrav"]);
+  if (selected.has("Úttøkukrav") || !selected.size) return ["Úttøkukrav"];
+
+  // A-krav is never meaningful alone. If A is used, B must exist too.
+  // If C is used, both A and B must exist as prerequisites.
+  if (selected.has("C-krav")) {
+    selected.add("A-krav");
+    selected.add("B-krav");
+  }
+  if (selected.has("A-krav")) selected.add("B-krav");
+  if (selected.has("B-krav")) selected.add("A-krav");
+
+  return ADD_REQUIREMENT_LEVELS.filter((level) => selected.has(level));
+}
+
+function setRequirementLevels(levels) {
+  const normalizedLevels = normalizeRequirementLevelsSelection(levels);
+  const selected = new Set(normalizedLevels);
   elements.requirementLevelChoices
     .querySelectorAll(".choice-button")
     .forEach((button) => {
@@ -4387,12 +5252,13 @@ function toggleRequirementLevel(value) {
     .map((button) => button.dataset.value);
 
   if (value === "A-krav") {
-    selected = isActive("A-krav") ? [] : ["A-krav"];
+    selected = isActive("A-krav") ? [] : ["A-krav", "B-krav"];
   }
 
   if (value === "B-krav") {
     if (!isActive("A-krav")) return;
-    selected = isActive("B-krav") ? ["A-krav"] : ["A-krav", "B-krav"];
+    selected = ["A-krav", "B-krav"];
+    if (isActive("C-krav")) selected.push("C-krav");
   }
 
   if (value === "C-krav") {
@@ -4433,9 +5299,7 @@ function getSelectedRequirementLevels() {
   ]
     .map((button) => button.dataset.value)
     .filter(Boolean);
-  if (!selected.length) return ["Úttøkukrav"];
-  if (selected.includes("Úttøkukrav")) return ["Úttøkukrav"];
-  return ADD_REQUIREMENT_LEVELS.filter((level) => selected.includes(level));
+  return normalizeRequirementLevelsSelection(selected);
 }
 
 function syncEditModalRequirementLevels() {
@@ -4450,7 +5314,12 @@ function syncEditModalRequirementLevels() {
   );
   if (!competition) return;
 
+  syncVisiblePointRequirementInputsToDraft(elements.addCompetitionDialog || document);
   const levels = getSelectedRequirementLevels();
+  const selectedQualificationType = getActiveChoice(elements.qualificationTypeChoices) || getQualificationType(competition);
+  if (selectedQualificationType === "points") {
+    ensurePointRequirementEditDraft(competition, levels);
+  }
   const competitionType = isMastersCompetition(competition)
     ? "masters"
     : competition.type || "standard";
@@ -4482,6 +5351,13 @@ function syncEditModalRequirementLevels() {
     levels,
     mastersAgeGroups,
   );
+
+  if (isPointCompetition(competition)) {
+    competition.pointRequirements = normalizePointRequirementsForSelectedLevels(
+      competition.pointRequirements,
+      levels,
+    );
+  }
 
   activeTotalsRequirementTitle = levels.length > 1 ? levels[0] : "";
   persistQualificationData();
@@ -4734,9 +5610,24 @@ function createCompetitionFromDialog() {
 
   const qualificationType = getActiveChoice(elements.qualificationTypeChoices) || DEFAULT_QUALIFICATION_TYPE;
   const isPointBased = qualificationType === "points";
+  if (isPointBased && syncVisiblePointRequirementInputs(elements.addCompetitionDialog)) {
+    persistQualificationData();
+  }
   const pointSetup = getPointSetupFromDialog();
   if (isPointBased) {
-    const validationError = validatePointCompetitionSetup(pointSetup);
+    const pointSetupForValidation =
+      isEditMode && existingCompetition
+        ? {
+            ...pointSetup,
+            pointRequirements: getPointRequirementsForDialogSave(
+              existingCompetition,
+              getSelectedRequirementLevels(),
+            ),
+          }
+        : pointSetup;
+    const validationError = validatePointCompetitionSetup(pointSetupForValidation, {
+      requireRequirements: isEditMode,
+    });
     if (validationError) {
       window.alert(validationError);
       return;
@@ -4748,6 +5639,12 @@ function createCompetitionFromDialog() {
     Number.isFinite(Number(elements.newCompetitionYear.value))
       ? Math.round(Number(elements.newCompetitionYear.value))
       : QUALIFICATION_YEAR;
+  const periodValidation = validateQualificationPeriod(getQualificationPeriodFromDialog());
+  if (!periodValidation.valid) {
+    window.alert(periodValidation.error);
+    return;
+  }
+  const qualificationPeriod = periodValidation.period;
   const selectedPointSystemChoice = pointSetup.pointSystem === "gamx" ? pointSetup.gamxType : pointSetup.pointSystem;
   const pointSystemControlsAge = isPointBased && isAgeSpecificPointSystemChoice(selectedPointSystemChoice);
   const typeChoice = pointSystemControlsAge
@@ -4758,6 +5655,7 @@ function createCompetitionFromDialog() {
   const competitionType = pointSystemControlsAge ? "standard" : typePreset.type;
   const ageCategoryChoice = pointSystemControlsAge ? "open" : typePreset.ageCategory || "senior";
   const levels = getSelectedRequirementLevels();
+  const pointRequirementLevels = levels;
   const mastersAgeGroups =
     competitionType === "masters" ? getSelectedMastersAgeGroups() : [];
   const adjustmentInput = existingCompetition
@@ -4859,13 +5757,16 @@ function createCompetitionFromDialog() {
       groupLabel: group.label,
       groupOrder: group.order,
       competitionYear,
+      qualificationPeriod,
       type: restoredType,
       ageRule: isPointBased ? ageRule : restoredAgeRule,
       qualificationType,
       pointSystem: isPointBased ? pointSetup.pointSystem : existingCompetition.pointSystem,
       gamxType: isPointBased ? pointSetup.gamxType : existingCompetition.gamxType,
       sinclairCycle: isPointBased ? pointSetup.sinclairCycle : existingCompetition.sinclairCycle,
-      pointRequirements: isPointBased ? pointSetup.pointRequirements : existingCompetition.pointRequirements,
+      pointRequirements: isPointBased
+        ? getPointRequirementsForDialogSave(existingCompetition, pointRequirementLevels)
+        : existingCompetition.pointRequirements,
       adjustmentPercent,
       rulePercent,
       displayOptions: restoredDisplayOptions,
@@ -4899,6 +5800,7 @@ function createCompetitionFromDialog() {
       groupLabel: group.label,
       groupOrder: group.order,
       competitionYear,
+      qualificationPeriod,
       order: orderBase,
       type: competitionType,
       ageRule,
@@ -4906,7 +5808,11 @@ function createCompetitionFromDialog() {
       pointSystem: isPointBased ? pointSetup.pointSystem : DEFAULT_POINT_SYSTEM,
       gamxType: isPointBased ? pointSetup.gamxType : "",
       sinclairCycle: DEFAULT_SINCLAIR_CYCLE,
-      pointRequirements: isPointBased ? pointSetup.pointRequirements : { men: null, women: null },
+      // Requirements for new Stig competitions are filled after the competition is created,
+      // matching the Tvídystur flow where totals are edited after creation.
+      pointRequirements: isPointBased
+        ? normalizePointRequirementsForSelectedLevels(null, pointRequirementLevels)
+        : { "Úttøkukrav": { men: null, women: null } },
       adjustmentPercent: 0,
       rulePercent,
       displayOptions: { active: "original" },
