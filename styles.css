@@ -3788,3 +3788,56 @@ tbody tr:hover {
 .danger-button {
   border-radius: 999px;
 }
+
+/* Mobile settings-modal fixes
+   1) Stack setup sections vertically on mobile-sized screens.
+   2) Keep add/edit dialogs scrollable enough to reach the save button. */
+@media (max-width: 900px) {
+  .add-competition-modal.has-totals-editor .competition-setup-row,
+  .add-competition-modal.has-totals-editor .choice-pair-row,
+  .add-competition-modal.has-totals-editor .point-age-system-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .add-competition-modal.has-totals-editor .point-age-system-row > .point-system-section {
+    grid-column: auto !important;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-section {
+    display: block !important;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .add-competition-modal.has-totals-editor .qualification-period-actions {
+    margin-top: 10px !important;
+    white-space: normal !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-dialog.add-dialog {
+    width: min(100% - 16px, 760px);
+  }
+
+  .settings-dialog.add-dialog[open] {
+    margin: 8px auto 0;
+    max-height: calc(100dvh - 16px);
+  }
+
+  .settings-dialog.add-dialog .settings-modal,
+  .settings-dialog.add-dialog.wide .settings-modal,
+  .settings-dialog.add-dialog .settings-modal.has-totals-editor {
+    max-height: calc(100dvh - 16px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(22px, env(safe-area-inset-bottom));
+  }
+
+  .settings-dialog.add-dialog .modal-actions,
+  .settings-dialog.add-dialog .competition-edit-actions {
+    padding-bottom: 2px;
+  }
+}
